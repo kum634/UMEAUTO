@@ -38,4 +38,4 @@ https://kum634.com/umeauto/
 
 
 
-This software is released under the BSD License, see LICENSE.txt.
+
