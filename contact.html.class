@@ -1,0 +1,64 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ *
+ * @package    basepack
+ * @copyright  Copyright (c) 2019
+ * @version    1.0.20201006
+ * @framework  Lib Framework v3.1.180515
+ */
+require_once("{$_SERVER["DOCUMENT_ROOT"]}/Lib/Conf.inc");
+require_once("Common/Page.class");
+require_once("Common/Fixed.class");
+require_once("Common/Lib.class");
+require_once("Common/Tag.class");
+
+use Lib\{Page,Fixed,Lib,Tag};
+
+class Page_Contact extends Page {
+	public $form;
+	public $select;
+	public $crumbs;
+
+	/**
+	 * ページロード時に実行します。
+	 */
+	public function default() {
+		$this->crumbs = "<li>お問い合わせ</li>\n";
+		$this->form = $_SESSION[DOMAIN]["contact"];
+		$this->select["city"] = array( 
+			"淡路市" => "淡路市" , 
+			"洲本市" => "洲本市" , 
+			"南あわじ市" => "南あわじ市"
+		);
+	}
+	/**
+	 * actionがconfirmのときに実行します。
+	 */
+	public function confirm() {
+		$_SESSION[DOMAIN]["contact"] = $_POST;
+		$this->response("OK", true);
+	}
+
+}
+/**
+ * フォーム要素とルールの連想配列
+ * 指定要素にフィルタールールと必須チェック及びセッション利用の有無を指定する
+ */
+
+/**
+ * ページインスタンス生成
+ * 実行パス、ルール連想配列及びページセッション名を指定する
+ */
+$page = new Page_Contact(__DIR__, null, null, false);
+/**
+ * イベント発生時のコールバック関数、移動先及びセッション保存の有無をセットしload()を実行する
+ */
+$page->setEvent("default", null, array($page, "default"), "", true);
+$page->setEvent("action", "confirm", array($page, "confirm"), "", true);
+
+/**
+ * クロスページポストの有無を設定する
+ */
+$page->canCrossPagePostBack = false;
+$page->load();

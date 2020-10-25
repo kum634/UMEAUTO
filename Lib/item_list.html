@@ -1,0 +1,92 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * ページリストページ
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2020 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.200714
+ */
+require_once("item_list.html.class"); 
+?>
+<?php include("inc/header.inc"); ?>
+<style>
+section .content .add a { width: 120px; }
+table td img { width: 100%; }
+table td label { color: #00c683; }
+table td:nth-of-type(1) { width: 120px; }
+table td:nth-of-type(2) { word-break: break-all; }
+table td:nth-of-type(3) { width: 100px; text-align: center; }
+table td:nth-of-type(4) { width: 160px; }
+table td.edit a { float: left; margin-left: 7px; }
+</style>
+<section>
+	<div class="wrap clearfix">
+		<div id="menu">
+			<?php include("inc/menu.inc"); ?>
+		</div>
+		<script>
+			$(function() {
+				$("td.edit a:nth-child(2)").on("click", function() {
+					$("#action").val("copy");
+					$("#ROWID").val($(this).data("rowid"));
+					$("form").submit();
+				});
+			});
+		</script>
+		<div class="content">
+			<article>
+				<?= ($page->errors["message"]) ? "<p>{$page->errors["message"]}</p>" : "" ?>
+			</article>
+			<article class="clearfix">
+				<h2><?= Lib\Fixed::category()[$_GET["category"]] ?></h2>
+				<div class="search">
+					<form method="get">
+						<input type="text" name="keyword" value="<?= $_GET["keyword"] ?>">
+						<input type="hidden" name="category" value="<?= $_GET["category"] ?>">
+						<input type="hidden" name="p" value="1000">
+					</form>
+				</div>
+				<div class="add">
+					<a href="item.html?p=<?= $page->pager->page ?>&category=<?= $_GET["category"] ?>">コンテンツ追加</a>
+				</div>
+			</article>
+			<div class="pager">
+				<?= $page->pager->getDL(Lib\Filter::getQueryString([],["p"]), "clearfix") ?>
+			</div>
+			<form method="post">
+				<table>
+					<tbody>
+						<tr>
+							<th>イメージ</th>
+							<th>タイトル</th>
+							<th>公開</th>
+							<th></th>
+						</tr>
+						<?php foreach($page->rows as $row) { ?>
+						<tr>
+							<td ><?php if ($row["uri_image"]) { ?><img src="<?= (stripos("http", $row["uri_image"]) === 0) ? $row["uri_image"] : "../{$row["uri_image"]}"; ?>"><?php } ?></td>
+							<td >
+								<label><?= date("Y.m.d", strtotime($row["tm_write"])) ?></label><br>
+								<?= $row["title"] ?>
+							</td>
+							<td class="mk"><?= (!$row["is_open"]) ? "" : "●" ?></td>
+							<td class="edit">
+								<a href="item.html?ROWID=<?= $row['ROWID'] ?>&p=<?= $page->pager->page ?>&category=<?= $row["category"] ?>">編集</a>
+								<a class="copy" href="javascript:void(0);" data-rowid="<?= $row['ROWID'] ?>">複製</a>
+							</td>
+						</tr>
+						<?php } ?>
+						<input type="hidden" id="action" name="action">
+						<input type="hidden" id="ROWID" name="ROWID">
+					</tbody>
+				</table>
+			</form>
+			<div class="pager">
+				<?= $page->pager->getDL(Lib\Filter::getQueryString([],["p"]), "clearfix") ?>
+			</div>
+		</div>
+	</div>
+</section>
+<?php include("inc/footer.inc"); ?>

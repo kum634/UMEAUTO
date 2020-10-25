@@ -1,0 +1,205 @@
+<?php 
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * テンプレートページ
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2020 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.200114
+ */
+require_once("template.html.class");
+?>
+<?php include("inc/header.inc"); ?>
+<style>
+section form dl dt { min-width: 120px; }
+</style>
+
+<section>
+	<div class="wrap clearfix">
+		<div id="menu">
+			<?php include("inc/menu.inc"); ?>
+		</div><!-- #menu -->
+		<script>
+		var isBusy = false;
+		var isChange = false;
+		var editor;
+		// note: ロック状態を確認する
+		function isLocked() {
+				var user = "<?= $_SESSION[DOMAIN]["Lib.user"]["user_id"] ?>";
+				if ($("#is_locked").val() == "1" && $("#user_id").val() != user) {
+					alert("このテンプレートは" + $("#user_name").val() + "によってロックされています。");
+					return false;
+				}
+				return true;
+		}
+		$(function() {
+			// note: エラー表示にクラスを追加する
+			$("form dl dd span").parent().parent().addClass("error");
+			// note: メニューのテンプレートプルダウンをクリックする
+			$("#menu .caption:eq(1) label").click();
+			// note: フォーム要素の変更イベント
+			$("form").on("change", function() {
+				isChange = true;
+			});
+			// note: 戻るボタンクリックイベント
+			$("#btn_back").on("click", function() {
+				if (isChange && !confirm("保存せずに戻りますか？")) return false;
+				$("#action").val("back");
+			});
+			// note: 保存ボタンクリックイベント
+			$("#btn_save").on("click", function() {
+				if (!isLocked()) return false;
+				$("textarea[name=content]").val(editor.getValue());
+				$("#action").val("save");
+			});
+			// note: 関連ページ更新ボタンクリックイベント
+			$("#btn_write").on("click", function() {
+				if (!isLocked()) return false;
+				$("textarea[name=content]").val(editor.getValue());
+				$("#action").val("write");
+			});
+			// note: 削除ボタンクリックイベント
+			$("#btn_delete").on("click", function() {
+				if ($("#ROWID").val() == "") return false;
+				if (!isLocked()) return false;
+				if (!confirm("<?= $page->values["tl_name"] ?>を削除してもよろしいですか？")) return false;
+				$("#action").val("delete");
+			});
+			// note: ロックボタンクリックイベント
+			$("#btn_lock").on("click", function() {
+				if ($("#ROWID").val() == "") return;
+				if (!isLocked()) return false;
+				if ($("#is_locked").val() == "1" && !confirm("このテンプレートのロックを解除しますか？")) return;
+				if ($("#is_locked").val() == "0" && !confirm("このテンプレートをロックしますか？")) return;
+
+				if (isBusy) return; else isBusy = true;
+				$.post(
+					location.href,
+					{ "action": "lock", "ROWID": $("#ROWID").val(), "is_locked": $("#is_locked").val() },
+					function (res) {
+						isBusy = false;
+						if (res.indexOf("FAILURE:") > -1) alert(res);
+						else location.reload();
+					},
+					"html");
+			});
+			
+			// note: エディター
+			$("#editor").css("height", $(window).height() - 136);
+				$("#editor").focusin(function() { 
+					var header = $("header").height() + 1;
+					var node = $("div.content > article:first");
+					var target = $("#editor").parent().parent();
+					$("div.content").animate({ scrollTop: target.offset().top - node.offset().top + 20 });
+				});
+			editor = ace.edit("editor");
+			editor.setTheme("ace/theme/eclipse");
+			editor.setFontSize(14);
+			editor.setShowInvisibles(true);
+			editor.getSession().setMode("ace/mode/html");
+			editor.getSession().setUseWrapMode(true);
+			editor.getSession().setTabSize(2);
+			editor.renderer.setShowGutter(false);
+			editor.setOption("showPrintMargin", false);
+			editor.$blockScrolling = Infinity;
+			editor.setValue($("textarea[name=content]").text(), -1);
+
+			$("section form div.hide a.close").on("click", function() {
+				$(this).parent().animate({height: "hide"},"fast");
+			});
+			$("section div.content a.open").on("click", function() {
+				$("section form div.hide").animate({height: "show"}, "fast");
+			});
+			if ($("#ROWID").val() == "") $("section div.content a.open").click();
+		});
+		</script>
+		<div class="content">
+			<article>
+				<?= ($page->errors["message"]) ? "<p>{$page->errors["message"]}</p>" : "" ?>
+				<h2><?= ($page->values["tl_name"]) ? $page->values["tl_name"] : "New template" ?></h2>
+				<a class="icon open" title="Edit detail"></a>
+				<button id="btn_lock" class="<?= ($page->values["is_locked"]) ? "lock_on" : "lock_off" ?>"><?= ($page->values["is_locked"]) ? "Unlock" : "Lock" ?></button>
+			</article>
+			<form method="post">
+				<div class="hide">
+					<a class="close"></a>
+					<dl>
+						<dt>Template name</dt>
+						<dd>
+							<input type="text" name="tl_name" value="<?= $page->values["tl_name"] ?>" style="width: 50%">
+							<?= ($page->errors["tl_name"]) ? "<span>{$page->errors["tl_name"]}</span>" : "" ?>
+						</dd>
+					</dl>
+					<dl class="file_name">
+						<dt>File name</dt>
+						<dd>
+							<input type="text" name="file_name" value="<?= $page->values["file_name"] ?>" style="width: 50%">.tmp
+							<?= ($page->errors["file_name"]) ? "<span>{$page->errors["file_name"]}</span>" : "" ?>
+						</dd>
+					</dl>
+					<dl class="file_path">
+						<dt>File path</dt>
+						<dd>
+							<input type="text" name="file_path" value="<?= $page->values["file_path"] ?>" style="width: 50%">
+							<?= ($page->errors["file_path"]) ? "<span>{$page->errors["file_path"]}</span>" : "" ?>
+						</dd>
+					</dl>
+					<dl>
+						<dt>Type of template</dt>
+						<dd>
+							<select name="tl_type" style="width: 50%">
+								<option value="">--</option>
+								<?= Lib\Tag::getOption(Lib\Lib::template(), $page->values["tl_type"]) ?>
+							</select>
+							<?= ($page->errors["tl_type"]) ? "<span>{$page->errors["tl_type"]}</span>" : "" ?>
+						</dd>
+					</dl>
+					<dl>
+						<dt>Createed:</dt>
+						<dd>
+							<?= $page->values["tm_create"] ?>
+							<input type="hidden" name="tm_create" value="<?= $page->values["tm_create"] ?>">
+						</dd>
+					</dl>
+					<dl>
+						<dt>Modified:</dt>
+						<dd>
+							<?= $page->values["tm_update"] ?>
+							<input type="hidden" name="tm_update" value="<?= $page->values["tm_update"] ?>">
+						</dd>
+					</dl>
+					<dl>
+						<dt>User:</dt>
+						<dd>
+							<?= $page->values["user_name"] ?>
+							<input type="hidden" id="user_name" name="user_name" value="<?= $page->values["user_name"] ?>">
+						</dd>
+					</dl>
+					<div class="clearfix">
+						<div class="left">
+							<button id="btn_back">Back</button>
+							<button id="btn_save">Save</button>
+							<button id="btn_write">Save all pages</button>
+						</div>
+						<div class="right">
+							<button id="btn_delete">Delete</button>
+						</div>
+						<input type="hidden" id="action" name="action" >
+						<input type="hidden" id="ROWID" name="ROWID" value="<?= $page->values["ROWID"] ?>">
+						<input type="hidden" id="user_id" name="user_id" value="<?= $page->values["user_id"] ?>">
+						<input type="hidden" id="is_locked" name="is_locked" value="<?= $page->values["is_locked"] ?>">
+					</div>
+				</div><!-- div.hide -->
+				<dl id="html" class="textarea">
+					<dd>
+						<div id="editor"></div>
+						<textarea name="content" style="display: none;" data-field="t_template.content" data-rowid="<?= $page->values["ROWID"] ?>"><?= $page->values["content"] ?></textarea>
+						<?php if ($page->values["ROWID"]) include("inc/support_editor.inc"); ?>
+					</dd>
+				</dl>
+			</form>
+		</div><!-- #content -->
+	</div><!-- #wrap -->
+</section>
+<?php include("inc/footer.inc"); ?>

@@ -1,0 +1,296 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * テンプレートページクラス
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2020 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.200612
+ */
+namespace Lib;
+
+require_once("Conf.inc");
+require_once("Common/Page.class");
+require_once("Common/DAC.class");
+
+class Page_Template extends Page {
+	/**
+	 * @var int 関連ページ書き出し時に使用するテンプレートID
+	 * @var int 関連ページ書き出し時に使用するテンプレートタイプ
+	 */
+	public $title;
+	private $ROWID;
+	private $tlType;
+	/**
+	 * 
+	 */
+	public function default(){
+		Lib::authPage($this);
+
+		// note: ポストバックデータがある場合はリターン
+		if ($this->values && $this->values["ROWID"] == $_GET["ROWID"]) return true;
+
+		// note: 新規の場合はリターン
+		if(!$_GET["ROWID"]) {
+			$this->values["user_id"] = $_SESSION[DOMAIN]["Lib.user"]["user_id"];
+			$this->values["user_name"] = $_SESSION[DOMAIN]["Lib.user"]["user_name"];
+			$this->title = "New template - ";
+			return true;
+		}
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setColumn("t.ROWID");
+		$dac->setColumn("t.tm_create");
+		$dac->setColumn("t.tm_update");
+		$dac->setColumn("t.user_id");
+		$dac->setColumn("t.is_locked");
+		$dac->setColumn("t.tl_name");
+		$dac->setColumn("t.tl_type");
+		$dac->setColumn("t.content");
+		$dac->setColumn("t.file_name");
+		// added: 170907
+		$dac->setColumn("t.file_path");
+		$dac->setColumn("u.user_name");
+		$dac->setOption("t.ROWID = [0]", $_GET["ROWID"]);
+		if (!$dac->selectRows("t_template As t Left Join t_user As u On (t.user_id = u.user_id)", $rows)) {
+			$_SESSION[DOMAIN]["Lib.page.template_list"]["errors"]["message"] = $dac->message;
+			$this->location("template_list.html");
+		}
+		if (!$rows[0]) {
+			$_SESSION[DOMAIN]["Lib.page.template_list"]["errors"]["message"] = "テンプレートが存在しません。";
+			$this->location("template_list.html");
+		}
+		$this->values = Filter::getEntities($rows[0]);
+		$this->title = "{$rows[0]["tl_name"]} - ";
+		return true;
+	}
+	/**
+	 * ページセッションを破棄しリストへ戻る
+	 */
+	public function back() {
+		Lib::authPage($this);
+		unset($_SESSION[DOMAIN][$this->sessionKey]);
+		unset($_SESSION[DOMAIN]["Lib.page.template_list"]["errors"]);
+		return true;
+	}
+	/**
+	 * テンプレート情報を保存する
+	 * modified: 170822 ファイル名の指定がある場合は指定のファイル名で保存
+	 * modified: 170907 保存先 file_path 追加
+	 */
+	public function save($useLocation = true) {
+		Lib::authPage($this);
+		if (!$_POST["tl_type"]) $this->errors["tl_type"] = "テンプレートの種類を選択してください。";
+		// note: タブを半角スペースx2に変換
+		Filter::tab2space($_POST["content"]);
+		// added: 170907 保存先の前後のスラッシュを削除
+		$_POST["file_path"] = trim($_POST["file_path"], "/");
+		
+		if($this->errors)	 {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"] = $this->errors;
+			return false;
+		}
+		
+		// note: ファイル名をチェック
+		// modified: 170908 ファイル名とファイルパスで重複をチェック（パーツのみファイル名を指定可能）
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		if ($_POST["file_name"]) {
+			$dac->setColumn("Count(*) cnt");
+			$dac->setOption("file_name = [0]", $_POST["file_name"]);
+			$dac->setOption("file_path = [0]", $_POST["file_path"]);
+			$dac->setOption("ROWID <> [0]", $_POST["ROWID"]);
+			if (!$dac->selectRows("t_template", $rows)) {
+				$_SESSION[DOMAIN][$this->sessionKey]["errors"]["message"] = $dac->message;
+				return false;
+			}
+			if ($rows[0]["cnt"] > 0) {
+				$_SESSION[DOMAIN][$this->sessionKey]["errors"]["message"] = "指定ファイル名は使用されています。";
+				return false;
+			}
+		}
+		
+		$dac->clear();
+		$dac->setData("tl_name", $_POST["tl_name"]);
+		$dac->setData("tl_type", $_POST["tl_type"]);
+		$dac->setData("content", $_POST["content"]);
+		$dac->setData("file_name", $_POST["file_name"]);
+		$dac->setData("file_path", $_POST["file_path"]);
+		$dac->setData("tm_update", date("Y/m/d H:i:s"));
+		// modified: 170908 セッション切れの場合はユーザーを更新しない
+		if ($_SESSION[DOMAIN]["Lib.user"]["user_id"])
+			$dac->setData("user_id", $_SESSION[DOMAIN]["Lib.user"]["user_id"]);
+		
+		if(!$_POST["ROWID"]){
+			$dac->setData("tm_create", date("Y/m/d H:i:s"));
+			if (!$ROWID = $dac->insertData("t_template", true, true)){
+				$_SESSION[DOMAIN][$this->sessionKey]["errors"]["message"] = $dac->message;
+				return false;
+			}
+		} else {
+			$dac->setOption("ROWID = [0]", $_POST["ROWID"]);
+			$dac->setColumn("tl_type, file_name, file_path");
+			$dac->selectRows("t_template", $rows);
+			
+			if (!$dac->updateData("t_template", 1)) {
+				$_SESSION[DOMAIN][$this->sessionKey]["errors"]["message"] = $dac->message;
+				return false;
+			}
+			$ROWID = $_POST["ROWID"];
+		}
+		// added: 170822 元のファイルを削除
+		if ($_POST["ROWID"]) {
+			if ($rows[0]["file_name"]) {
+				if ($rows[0]["file_path"]) $path = "../{$rows[0]["file_path"]}/{$rows[0]["file_name"]}.tmp";
+				else $path = "../tmp/{$rows[0]["file_name"]}.tmp";
+			} else {
+				if ($rows[0]["file_path"]) $path = "../{$rows[0]["file_path"]}/{$rows[0]["tl_type"]}_{$_POST["ROWID"]}.tmp";
+				else $path = "../tmp/{$rows[0]["tl_type"]}_{$_POST["ROWID"]}.tmp";
+			}
+			unlink($path);
+		}
+		// note: テンプレートファイル書き出し
+		if ($_POST["content"]) {
+			if ($_POST["file_name"]) {
+				if ($_POST["file_path"]) $path = "../{$_POST["file_path"]}/{$_POST["file_name"]}.tmp";
+				else $path = "../tmp/{$_POST["file_name"]}.tmp";
+			} else {
+				if ($_POST["file_path"]) $path = "../{$_POST["file_path"]}/{$_POST["tl_type"]}_{$ROWID}.tmp";
+				else $path = "../tmp/{$_POST["tl_type"]}_{$ROWID}.tmp";
+			}
+			Filter::makeDirectory($path);
+			if (file_put_contents($path, $_POST["content"]) === false) {
+				unset($_SESSION[DOMAIN][$this->sessionKey]);
+				$_SESSION[DOMAIN]["Lib.page.template_list"]["errors"]["message"] = "テンプレートの書き出しに失敗しました。";
+				return false;
+			}
+		}
+		// Note: 関連ページ書き出し用にクラス変数にIDをセットする
+		$this->ROWID = $ROWID;
+		$this->tlType = $_POST["tl_type"];
+		
+		unset($_SESSION[DOMAIN][$this->sessionKey]);
+		if ($useLocation) $this->location("template.html?ROWID={$this->ROWID}#html");
+		return true;
+	}
+	/**
+	 * ユーザー情報を保存し関連するページを更新する
+	 * modified: 191226 ヘッダーフッターののパス指定に対応
+	 */
+	public function write() {
+		Lib::authPage($this);
+		if (!$this->save(false)) return false;
+		if ($this->tlType != "header" && $this->tlType != "footer") $this->location("template.html?ROWID={$this->ROWID}");
+
+		$dac = new DAC(Lib::connection(), "mysql");
+		$dac->setColumn("p.*");
+		$dac->setColumn("h.file_path As header_path , h.file_name As header_name");
+		$dac->setColumn("f.file_path As footer_path , f.file_name As footer_name");
+		if ($this->tlType == "header") {
+			$dac->setOption("p.header_temp = [0]", $this->ROWID);
+		} else {
+			$dac->setOption("p.footer_temp = [0]", $this->ROWID);
+		}
+		$view = "t_page As p";
+		$view.= " Left Join t_template As h On (p.header_temp = h.ROWID)";
+		$view.= " Left Join t_template As f On (p.footer_temp = f.ROWID)";
+		if (!$dac->selectRows($view, $rows)) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["message"] = $dac->message;
+			return false;
+		}
+
+		// note: 関連ページをループして書き出し
+		foreach ($rows as $row) {
+			$path = ($row["header_path"]) ? "../{$row["header_path"]}" : "../tmp";
+			$path = ($row["header_name"]) ? "{$path}/{$row["header_name"]}.tmp" : "{$path}/header_{$row["header_temp"]}.tmp";
+			$header = file_get_contents($path);
+			
+			$path = ($row["footer_path"]) ? "../{$row["footer_path"]}" : "../tmp";
+			$path = ($row["footer_name"]) ? "{$path}/{$row["footer_name"]}.tmp" : "{$path}/footer_{$row["footer_temp"]}.tmp";
+			$footer = file_get_contents($path);
+			
+			$content = Filter::makePage($row, $header, $footer);
+			file_put_contents("../{$row["url"]}", $content);
+		}
+		unset($_SESSION[DOMAIN][$this->sessionKey]);
+		$this->location("template.html?ROWID={$this->ROWID}#html");
+	}
+	/**
+	 * テンプレート情報を削除する
+	 */
+	public function delete() {
+		Lib::authPage($this);
+		if (!$_POST["ROWID"]) return false;
+		
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setColumn("tl_type, file_name, file_path");
+		$dac->setOption("ROWID = [0]", $_POST["ROWID"]);
+		$dac->selectRows("t_template", $rows);
+		
+		if (!$dac->deleteRows("t_template", 1)) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["message"] = $dac->message;
+			return false;
+		}
+		if ($rows[0]["file_name"]) {
+			if ($rows[0]["file_path"]) $path = "../{$rows[0]["file_path"]}/{$rows[0]["file_name"]}.tmp";
+			else $path = "../tmp/{$rows[0]["file_name"]}.tmp";
+		} else {
+			if ($rows[0]["file_path"]) $path = "../{$rows[0]["file_path"]}/{$rows[0]["tl_type"]}_{$_POST["ROWID"]}.tmp";
+			else $path = "../tmp/{$rows[0]["tl_type"]}_{$_POST["ROWID"]}.tmp";
+		}
+		unlink($path);
+		unset($_SESSION[DOMAIN][$this->sessionKey]);
+		return true;
+	}
+	/**
+	 * ajax: テンプレートをロックする
+	 */
+	public function lock() {
+		Lib::authPage($this);
+		if (!$_POST["ROWID"]) die("FAILURE:必要な情報が送信されませんでした。");
+
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setOption("ROWID = [0]", $_POST["ROWID"]);
+		if ($_POST["is_locked"]) {
+			$dac->setData("is_locked", "0");
+		}else {
+			$dac->setData("user_id", $_SESSION[DOMAIN]["Lib.user"]["user_id"]);
+			$dac->setData("is_locked", "1");
+		}
+		if (!$dac->updateData("t_template", 1)) die("FAILURE:{$dac->message}");
+
+		echo "SUCCEED";
+		exit();
+	}
+}
+/**
+ * フォーム要素とルールの連想配列
+ * 指定要素にフィルタールールと必須チェック及びセッション利用の有無を指定する
+ */
+$form["ROWID"] = new Rule(9, "[^0-9]", "a", null, false, true);
+$form["tm_create"] = new Rule(20, "[^0-9/: ]", null, null, false, true);
+$form["tm_update"] = new Rule(20, "[^0-9/: ]", null, null, false, true);
+$form["user_name"] = new Rule(200, null, null, null, false, true);
+
+$form["user_id"] = new Rule(20, "[^0-9a-zA-Z\-_]", null, null, false, true);
+$form["is_locked"] = new Rule(1, "[^01]", null, null, false, true);
+
+$form["tl_name"] = new Rule(50, null, null, null, true, true);
+$form["tl_type"] = new Rule(10, "[^a-z]", null, null, true, true);
+$form["content"] = new Rule(200000, "", null, null, false, true);
+$form["file_name"] = new Rule(100, "[^0-9a-zA-Z\-_.]", "a", null, false, true);
+$form["file_path"] = new Rule(100, "[^0-9a-zA-Z\-_/]", "a", null, false, true);
+/**
+ * ページインスタンス生成
+ * 実行パス、ルール連想配列及びページセッション名を指定する
+ */
+$page = new Page_Template(__DIR__, $form, "Lib.page.template");
+/**
+ * イベント発生時のコールバック関数、移動先及びセッション保存の有無をセットしload()を実行する
+ */
+$page->setEvent("default", null, array($page, "default"), "", false);
+$page->setEvent("action", "back", array($page, "back"), "template_list.html", false);
+$page->setEvent("action", "save", array($page, "save"), "template_list.html", true);
+$page->setEvent("action", "write", array($page, "write"), "template_list.html", true);
+$page->setEvent("action", "delete", array($page, "delete"), "template_list.html", false);
+$page->setEvent("action", "lock", array($page, "lock"), "", false);
+$page->load();

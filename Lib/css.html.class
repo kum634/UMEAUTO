@@ -1,0 +1,252 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * CSSページクラス
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2019 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.191220
+ */
+namespace Lib;
+
+require_once("Conf.inc");
+require_once("Common/Page.class");
+require_once("Common/DAC.class");
+
+class Page_CSS extends Page {
+	public $title;
+	/**
+	 * 
+	 */
+	public function default(){
+		Lib::authPage($this);
+		// note: ポストバックデータがある場合はリターン
+		if ($this->values && $this->values["ROWID"] == $_GET["ROWID"]) return true;
+
+		// note: 新規の場合はリターン
+		if(!$_GET["ROWID"]) {
+			$this->values["user_id"] = $_SESSION[DOMAIN]["Lib.user"]["user_id"];
+			$this->values["user_name"] = $_SESSION[DOMAIN]["Lib.user"]["user_name"];
+			$this->title = "New css - ";
+			return true;
+		}
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setColumn("c.ROWID");
+		$dac->setColumn("c.tm_create");
+		$dac->setColumn("c.tm_update");
+		$dac->setColumn("c.user_id");
+		$dac->setColumn("c.is_locked");
+		$dac->setColumn("c.css_name");
+		// added: 170907
+		$dac->setColumn("c.file_path");
+		$dac->setColumn("c.n_min");
+		$dac->setColumn("c.n_max");
+		$dac->setColumn("c.content");
+		$dac->setColumn("u.user_name");
+		$dac->setOption("c.ROWID = [0]", $_GET["ROWID"]);
+		if (!$dac->selectRows("t_css As c Left Join t_user As u On (c.user_id = u.user_id)", $rows)) {
+			$_SESSION[DOMAIN]["Lib.page.css_list"]["errors"]["message"] = $dac->message;
+			$this->location("Location: css_list.html");
+		}
+		if (!$rows[0]) {
+			$_SESSION[DOMAIN]["Lib.page.css_list"]["errors"]["message"] = "CSSが存在しません。";
+			$this->location("Location: css_list.html");
+		}
+		$this->values = Filter::getEntities($rows[0]);
+		$this->errors = null;
+		$this->title = "{$rows[0]["css_name"]}.css - ";
+		return true;
+	}
+	/**
+	 * ページセッションを破棄しリストへ戻る
+	 */
+	public function back() {
+		Lib::authPage($this);
+		unset($_SESSION[DOMAIN][$this->sessionKey]);
+		unset($_SESSION[DOMAIN]["Lib.page.css_list"]["errors"]);
+		return true;
+	}
+	/**
+	 * CSS情報を保存する
+	 * modified: 170907 保存先 file_path 追加
+	 */
+	public function save($useLocation = true) {
+		Lib::authPage($this);
+		if ($this->errors) return false;
+		// note: タブを半角スペースx2に変換
+		Filter::tab2space($_POST["content"]);
+		// added: 170907 保存先の前後のスラッシュを削除
+		$_POST["file_path"] = trim($_POST["file_path"], "/");
+		
+		// note: 同名ファイルをチェック
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setColumn("Count(*) cnt");
+		$dac->setOption("css_name = [0]", $_POST["css_name"]);
+		$dac->setOption("file_path = [0]", $_POST["file_path"]);
+		$dac->setOption("ROWID <> [0]", $_POST["ROWID"]);
+		if (!$dac->selectRows("t_css", $rows)) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["message"] = $dac->message;
+			return false;
+		}
+		if ($rows[0]["cnt"] > 0) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["message"] = "指定ファイル名は使用されています。";
+			return false;
+		}
+		// note: 保存前のファイルを獲得する
+		$dac->clear();
+		$dac->setColumn("css_name, file_path");
+		$dac->setOption("ROWID = [0]", $_POST["ROWID"]);
+		if (!$dac->selectRows("t_css", $rows, 1)) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["message"] = $dac->message;
+			return false;
+		} else if (count($rows) > 0) {
+			if ($rows[0]["file_path"]) $basePath = "../{$rows[0]["file_path"]}/{$rows[0]["css_name"]}.css";
+			else $basePath = "../css/{$rows[0]["css_name"]}.css";
+		}
+		// note: CSS情報を登録する
+		$dac->clear();
+		$dac->setData("css_name", $_POST["css_name"]);
+		$dac->setData("file_path", $_POST["file_path"]);
+		$dac->setData("n_min", $_POST["n_min"]);
+		$dac->setData("n_max", $_POST["n_max"]);
+		$dac->setData("content", $_POST["content"]);
+		$dac->setData("tm_update", date("Y/m/d H:i:s"));
+		// modified: 170908 セッション切れの場合はユーザーを更新しない
+		if ($_SESSION[DOMAIN]["Lib.user"]["user_id"])
+			$dac->setData("user_id", $_SESSION[DOMAIN]["Lib.user"]["user_id"]);
+		
+		if(!$_POST["ROWID"]){
+			$dac->setData("tm_create", date("Y/m/d H:i:s"));
+			if (!$ROWID = $dac->insertData("t_css", true, true)){
+				$_SESSION[DOMAIN][$this->sessionKey]["errors"]["message"] = $dac->message;
+				return false;
+			}
+		} else {
+			$dac->setOption("ROWID = [0]", $_POST["ROWID"]);
+			if (!$dac->updateData("t_css", 1)) {
+				$_SESSION[DOMAIN][$this->sessionKey]["errors"]["message"] = $dac->message;
+				return false;
+			}
+			$ROWID = $_POST["ROWID"];
+		}
+		// note: CSSファイル書き出し
+		if ($_POST["file_path"]) $destPath = "../{$_POST["file_path"]}/{$_POST["css_name"]}.css";
+		else $destPath = "../css/{$_POST["css_name"]}.css";
+		// note: ファイル名が変更された場合は元のファイルを削除
+		if ($basePath && $basePath != $destPath) unlink($basePath);
+
+		$lines = explode("\n", $_POST["content"]);
+		if (stripos($lines[0], "@charset ") !== false) $lines[0] = "";
+
+		if ($_POST["n_min"] && $_POST["n_max"]) {
+			$css = "@media screen and (min-width: {$_POST["n_min"]}px) and (max-width: {$_POST["n_max"]}px){\n";
+			foreach ($lines as $line) $css.= "  {$line}\n";
+			$css.= "}";
+		} else if ($_POST["n_min"]) {
+			$css = "@media screen and (min-width: {$_POST["n_min"]}px){\n";
+			foreach ($lines as $line) $css.= "  {$line}\n";
+			$css.= "}";
+		} else if ($_POST["n_max"]) {
+			$css = "@media screen and (max-width: {$_POST["n_max"]}px){\n";
+			foreach ($lines as $line) $css.= "  {$line}\n";
+			$css.= "}";
+		} else {
+			// note: charsetはメディアクエリー以外に限定する
+			$css = "@charset \"utf-8\";\n";
+			foreach ($lines as $line) $css.= "{$line}\n";
+		}
+
+		Filter::makeDirectory($destPath);
+		if (file_put_contents($destPath, $css) === false) {
+			unset($_SESSION[DOMAIN][$this->sessionKey]);
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["message"] = "CSSの書き出しに失敗しました。";
+			return false;
+		}
+		unset($_SESSION[DOMAIN][$this->sessionKey]);
+		$this->location("css.html?ROWID={$ROWID}#css");
+	}
+	/**
+	 * CSS情報を削除する
+	 * modified: 170907 保存先 file_path 追加
+	 */
+	public function delete() {
+		Lib::authPage($this);
+		if (!$_POST["ROWID"]) return false;
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setOption("ROWID = [0]", $_POST["ROWID"]);
+
+		// note: ファイル名を獲得する
+		$dac->setColumn("css_name, file_path");
+		$dac->setOption("ROWID = [0]", $_POST["ROWID"]);
+		if (!$dac->selectRows("t_css", $rows, 1)) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["message"] = $dac->message;
+			return false;
+		} else if (count($rows) > 0) {
+			if ($rows[0]["file_path"]) $pathBase = "../{$rows[0]["file_path"]}/{$rows[0]["css_name"]}.css";
+			else $pathBase = "../css/{$rows[0]["css_name"]}.css";
+		}
+
+		// note: CSS情報を削除する
+		if (!$dac->deleteRows("t_css", 1)) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["message"] = $dac->message;
+			return false;
+		}
+		// note: ファイルを削除する
+		if ($pathBase) unlink($pathBase);
+		
+		unset($_SESSION[DOMAIN][$this->sessionKey]);
+		return true;
+	}
+	/**
+	 * ajax: テンプレートをロックする
+	 */
+	public function lock() {
+		Lib::authPage($this);
+		if (!$_POST["ROWID"]) die("FAILURE:必要な情報が送信されませんでした。");
+
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setOption("ROWID = [0]", $_POST["ROWID"]);
+		if ($_POST["is_locked"]) {
+			$dac->setData("is_locked", "0");
+		}else {
+			$dac->setData("user_id", $_SESSION[DOMAIN]["Lib.user"]["user_id"]);
+			$dac->setData("is_locked", "1");
+		}
+		if (!$dac->updateData("t_css", 1)) die("FAILURE:{$dac->message}");
+
+		echo "SUCCEED";
+		exit();
+	}
+}
+/**
+ * フォーム要素とルールの連想配列
+ * 指定要素にフィルタールールと必須チェック及びセッション利用の有無を指定する
+ */
+$form["ROWID"] = new Rule(9, "[^0-9]", "a", null, false, true);
+$form["tm_create"] = new Rule(20, "[^0-9/: ]", null, null, false, true);
+$form["tm_update"] = new Rule(20, "[^0-9/: ]", null, null, false, true);
+$form["user_name"] = new Rule(200, null, null, null, false, true);
+
+$form["user_id"] = new Rule(20, "[^0-9a-zA-Z\-_]", null, null, false, true);
+$form["is_locked"] = new Rule(1, "[^01]", null, null, false, true);
+
+$form["css_name"] = new Rule(100, "[^0-9a-zA-Z\-_.]", "a", null, true, true);
+$form["file_path"] = new Rule(100, "[^0-9a-zA-Z\-_/]", "a", null, false, true);
+$form["n_min"] = new Rule(6, "[^0-9]", "a", null, false, true);
+$form["n_max"] = new Rule(6, "[^0-9]", "a", null, false, true);
+$form["content"] = new Rule(200000, "", null, null, false, true);
+/**
+ * ページインスタンス生成
+ * 実行パス、ルール連想配列及びページセッション名を指定する
+ */
+$page = new Page_CSS(__DIR__, $form, "Lib.page.css");
+/**
+ * イベント発生時のコールバック関数、移動先及びセッション保存の有無をセットしload()を実行する
+ */
+$page->setEvent("default", null, array($page, "default"), "", false);
+$page->setEvent("action", "back", array($page, "back"), "css_list.html", false);
+$page->setEvent("action", "save", array($page, "save"), "css_list.html", true);
+$page->setEvent("action", "delete", array($page, "delete"), "css_list.html", false);
+$page->setEvent("action", "lock", array($page, "lock"), "", false);
+$page->load();

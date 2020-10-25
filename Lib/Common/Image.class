@@ -1,0 +1,347 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * イメージククラス
+ *
+ * プロパティーアクセスは__get()__set()マジックメソッドによって制御される。
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2018-2019 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.1.190205
+ */
+namespace Lib;
+
+class Image {
+	/**
+	 * @property-read string $path コンストラクタに指定する画像へのパス
+	 * @property-read string $source コンストラクタで設定される画像のサイズ情報
+	 * @property-read string $message エラーメッセージ
+	 * @property int $level フィルターレベル
+	 * @property int $blockSize モザイクブロックサイズ
+	 * @property bool $pixelate 高度なモザイク効果
+	 * @property string $color フィルターカラーアルファチャネル（#000000,A | R,G,B,A）
+	 * @property array $effects 画像フィルターの効果定数配列
+	 */
+	private $path;
+	private $source;
+	private $dest;
+	private $message;
+	private $level;
+	private $blockSize;
+	private $pixelate;
+	private $color;
+	private $effects;
+	/**
+	 * コンストラクタ
+	 *
+	 * @param string $path 画像へのパス
+	 */
+	public function __construct(string $path) {
+		list($source["width"], $source["height"], $source["type"]) = getimagesize($path);
+		$this->path = $path;
+		$this->source = $source;
+	}
+	/**
+	 * マジックメソッドゲッター
+	 *
+	 * @param string $name メンバ変数名
+	 */
+	public function __get(string $name) { return $this->$name; }
+	/**
+	 * マジックメソッドセッター
+	 *
+	 * @param string $name メンバ変数名
+	 * @param mixed $value メンバ変数値
+	 */
+	public function __set(string $name, $value) {
+		if ($name == "level") $this->$name = $value;
+		else if ($name == "blockSize") $this->$name = $value;
+		else if ($name == "pixelate") $this->$name = $value;
+		else if ($name == "color") $this->$name = $value;
+		else if ($name == "effects") $this->$name = $value;
+	}
+	/**
+	 * ソースプロパティーの画像形式から判定した適切なイメージリソースを返す
+	 */
+	private function load() {
+		switch ($this->source["type"] ) {
+			case IMAGETYPE_JPEG: return imagecreatefromjpeg($this->path);
+			case IMAGETYPE_PNG: return imagecreatefrompng($this->path);
+			case IMAGETYPE_GIF: return imagecreatefromgif($this->path);
+			default: 
+				throw new \Exception("対応していないファイル形式です。");
+				break;
+		}
+	}
+	/**
+	 * ソースプロパティーの形式の画像を出力する
+	 *
+	 * @param resource $image 画像リソース
+	 */
+	private function save($image) {
+		switch ($this->source["type"] ) {
+			case IMAGETYPE_JPEG: return imagejpeg($image, $this->path);
+			case IMAGETYPE_PNG: return imagepng($image, $this->path);
+			case IMAGETYPE_GIF: return imagegif($image, $this->path);
+		}
+	}
+	/**
+	 * プロパティーに指定したエフェクトを適用する
+	 *
+	 * @param resource $image 画像リソース
+	 */
+	private function effect($image) { 
+		foreach ($this->effects as $effect) {
+			switch ($effect) {
+				case "IMG_FILTER_BRIGHTNESS":
+					if ($this->level["BRIGHTNESS"] < -255 || $this->level["BRIGHTNESS"] > 255) throw new \Exception("輝度レベルが無効です。");
+					imagefilter($image, constant($effect), $this->level["BRIGHTNESS"]);
+					break;
+				case "IMG_FILTER_CONTRAST":
+					if ($this->level["CONTRAST"] < -255 || $this->level["CONTRAST"] > 255) throw new \Exception("コントラストレベルが無効です。");
+					imagefilter($image, constant($effect), $this->level["CONTRAST"]);
+					break;
+				case "IMG_FILTER_COLORIZE":
+					if (!$this->color) throw new \Exception("カラーの指定がありません。");
+					if (strpos($this->color, "#") === false) $color = explode(",", $this->color);
+					else {
+						$ss = explode(",", $this->color);
+						$color = sscanf($ss[0], "#%2x%2x%2x");
+						$color[] = $ss[1];
+					}
+					imagefilter($image, constant($effect), $color[0], $color[1], $color[2], $color[3]);
+					break;
+				case "IMG_FILTER_SMOOTH":
+					if ($this->level["SMOOTH"] < -8 || $this->level["SMOOTH"] > 8) throw new \Exception("平滑度レベルが無効です。");
+					imagefilter($image, constant($effect), $this->level["SMOOTH"]);
+					break;
+				case "IMG_FILTER_PIXELATE":
+					if ($this->blockSize < -8 || $this->blockSize > 8) throw new \Exception("ブロックサイズの指定が無効です。");
+					imagefilter($image, constant($effect), $this->blockSize, ($this->pixelate) ? true : false);
+					break;
+				default:
+					imagefilter($image, constant($effect));
+					break;
+			}
+		}
+	}
+	/**
+	 * プロパティーに指定した効果を適用する
+	 *
+	 * @return bool 成功した場合はtrueを返す
+	 */
+	public function effectImage() {
+		$source = $this->source;
+		
+		try {
+			if (!$this->effects) throw new \Exception("効果の指定がありません。");
+			$source["image"] = $this->load();
+			$this->effect($source["image"]);
+			
+			$this->save($source["image"]);
+			return true;
+		} catch (\Exception $ex) {
+			$this->message = $ex->getMessage();
+			return false;
+		} finally {
+			if ($source["image"]) imagedestroy($source["image"]);
+		}
+	}
+	/**
+	 * 第1引数に指定したスケールに縮小、拡大する
+	 *
+	 * @param int $scale 比率
+	 * @param int $effect 画像に効果を適用する場合はtrueを指定
+	 * @return bool 成功した場合はtrueを返す
+	 */
+	public function scaleImage($scale, $effect) {
+		$source = $this->source;
+		$dest = [];
+		
+		try{
+			if (!$scale) throw new \Exception("比率の指定が無効です。");
+			$dest["width"] = $source["width"] * $scale;
+			$dest["height"] = $source["height"] * $scale;
+			$source["image"] = $this->load();
+			$dest["image"] = imagecreatetruecolor($dest["width"], $dest["height"]);
+			imagealphablending($dest["image"], false);
+			imagesavealpha($dest["image"], true);
+
+			imagecopyresampled($dest["image"], $source["image"],
+												 0, 0, 0, 0,
+												 $dest["width"], $dest["height"], $source["width"], $source["height"]);
+
+			if ($effect) $this->effect($dest["image"]);
+			$this->save($dest["image"]);
+			return true;
+		} catch (\Exception $ex) {
+			$this->message = $ex->getMessage();
+			return false;
+		} finally {
+			if ($source["image"]) imagedestroy($source["image"]);
+			if ($dest["image"]) imagedestroy($dest["image"]);
+		}
+	}
+	/**
+	 * 位置とサイズを指定し画像の部分切り出しを行う
+	 *
+	 * @param int $x X座標
+	 * @param int $y Y座標
+	 * @param int $width 幅
+	 * @param int $height 高さ
+	 * @param int $effect 画像に効果を適用する場合はtrueを指定
+	 * @return bool 成功した場合はtrueを返す
+	 */
+	public function trimImage($x, $y, $width, $height, $effect = false) {
+		$source = $this->source;
+		$dest["width"] = $width;
+		$dest["height"] = $height;
+		try  {
+			if ($x < 0 || $y < 0) throw new \Exception("座標の指定が無効です。");
+			if (!$dest["width"] || !$dest["height"]) throw new \Exception("サイズの指定がありません。");
+			if ($dest["width"] < 0 || $dest["height"] < 0) throw new \Exception("サイズの指定が無効です。");
+			if ($x + $dest["width"] > $source["width"] ||
+					$y + $dest["height"] > $source["height"]) throw new \Exception("切り出し範囲が無効です。");
+
+			$source["image"] = $this->load();
+			$dest["image"] = imagecreatetruecolor($dest["width"], $dest["height"]);
+
+			imagecopyresampled($dest["image"], $source["image"],
+												 0, 0, $x, $y,
+												 $dest["width"], $dest["height"], $dest["width"], $dest["height"]);
+
+			if ($effect) $this->effect($dest["image"]);
+			$this->save($dest["image"]);
+			return true;
+		} catch (\Exception $ex) {
+			$this->message = $ex->getMessage();
+			return false;
+		} finally {
+			if ($source["image"]) imagedestroy($source["image"]);
+			if ($dest["image"]) imagedestroy($dest["image"]);
+		}
+	}
+	/**
+	 * 指定したサイズにアスペクト比を維持してリサイズする
+	 * ソース画像サイズが出力画像サイズより小さい場合は拡大しない
+	 *
+	 * @param int $width 出力画像サイズ（幅）
+	 * @param int $height 出力画像サイズ（高さ）
+	 * @param int $effect 画像に効果を適用する場合はtrueを指定
+	 * @return bool 成功した場合はtrueを返す
+	 */
+	public function resizeImage($width, $height, $color, $effect) {
+		$source = $this->source;
+		$dest["width"] = $width;
+		$dest["height"] = $height;
+		
+		try {
+			if (!$dest["width"] && !$dest["height"]) throw new \Exception("サイズの指定がありません。");
+			if ($dest["width"] < 0 || $dest["height"] < 0) throw new \Exception("サイズの指定が無効です。");
+			// note: 縦横１方を指定した場合は、アスペクト比を維持した出力サイズを算出
+			if (!$dest["width"] || !$dest["height"]) {
+				if ($dest["width"]) {
+					$scale = $dest["width"] / $source["width"];
+					$dest["height"] = $source["height"] * $scale;
+				} else {
+					$scale = $dest["height"] / $source["height"];
+					$dest["width"] = $source["width"] * $scale;
+				}
+			}
+
+			// note: ソース画像の書き出しサイズと位置を算出
+			$sw = $dest["width"] / $source["width"];
+			$sh = $dest["height"] / $source["height"];
+			$scale = ($sw < $sh) ? $sw : $sh;
+			if ($scale > 1) {
+				// note: 拡大せずキャンバスの中央に配置
+				$w = $source["width"];
+				$h = $source["height"];
+				$x = ($dest["width"] - $source["width"]) / 2;
+				$y = ($dest["height"] - $source["height"]) / 2;
+			} else {
+				// note: 縮小しキャンバスの中央に配置
+				$w = $source["width"] * $scale;
+				$h = $source["height"] * $scale;
+				if ($w < 1) $w = 1;
+				if ($h < 1) $h = 1;
+				$x = ($dest["width"] - $w) / 2;
+				$y = ($dest["height"] - $h) / 2;
+			}
+			
+			$source["image"] = $this->load();
+			$dest["image"] = imagecreatetruecolor($dest["width"], $dest["height"]);
+			
+			if (strpos($color, "#") === false) $rgb = explode(",", $color);
+			else $rgb = sscanf($color, "#%2x%2x%2x");
+			$color = imagecolorallocate($dest["image"], $rgb[0], $rgb[1], $rgb[2]);
+			imagefill($dest["image"], 0, 0, $color);
+			
+			imagecopyresampled($dest["image"], $source["image"],
+												 $x, $y, 0, 0,
+												 $w, $h, $source["width"], $source["height"]);
+			
+			if ($effect) $this->effect($dest["image"]);
+			$this->save($dest["image"]);
+			return true;
+		} catch (\Exception $ex) {
+			$this->message = $ex->getMessage();
+			return false;
+		} finally {
+			if ($source["image"]) imagedestroy($source["image"]);
+			if ($dest["image"]) imagedestroy($dest["image"]);
+		}
+	}
+	/**
+	 * EXIFヘッダOrientation値に従い画像の向きを補正する
+	 *
+	 * @return bool 成功した場合はtrueを返す
+	 */
+	public function rotateImage($orientation) {
+		try {
+			switch ($orientation) {
+				case 2:
+					// note: 左右反転
+					$mode = IMG_FLIP_VERTICAL;
+					break;
+				case 3:
+					// note: 180度回転
+					$angle = 180;
+					break;
+				case 4:
+					// note: 上下反転
+					$mode = IMG_FLIP_HORIZONTAL;
+					break;
+				case 5:
+					// note: 反時計回りに270度回転、左右反転
+					$angle = 270;
+					$mode = IMG_FLIP_VERTICAL;
+					break;
+				case 6:
+					// note: 反時計回りに270度回転
+					$angle = 270;
+					break;
+				case 7:
+					// note: 反時計回りに90度回転、左右反転
+					$angle = 90;
+					$mode = IMG_FLIP_VERTICAL;
+					break;
+				case 8:
+					// note: 反時計回りに90度回転
+					$angle = 90;
+					break;
+			}
+			$source["image"] = $this->load();
+			if ($mode) imageflip($source["image"], $mode);
+			if ($angle) $source["image"] = imagerotate($source["image"], $angle, 0);
+			$this->save($source["image"]);
+			return true;
+		} catch (\Exception $ex) {
+			$this->message = $ex->getMessage();
+			return false;
+		} finally {
+			if ($source["image"]) imagedestroy($source["image"]);
+		}
+	}
+}

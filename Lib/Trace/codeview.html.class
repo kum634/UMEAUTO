@@ -1,0 +1,67 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * キャッシュページクラス
+ *
+ * プロパティーアクセスは__get()__set()マジックメソッドによって制御される。
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2017-2019 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.191220
+ */
+namespace Lib;
+
+require_once("../Conf.inc");
+require_once("Common/Filter.class");
+require_once("Common/Lib.class");
+require_once("Common/DAC.class");
+
+class Page_CodeView {
+	/**
+	 * @property-read string $path アクセスURLの相対パス
+	 */
+	private $path = "../../";
+	private $name;
+	private $class;
+	private $html;
+	/**
+	 * マジックメソッドゲッター
+	 *
+	 * @param string $name メンバ変数名
+	 */
+	public function __get(string $name) { return $this->$name; }
+	/**
+	 * マジックメソッドセッター
+	 *
+	 * @param string $name メンバ変数名
+	 * @param mixed $value メンバ変数値
+	 */
+	public function __set(string $name, $value) { }
+	/**
+	 * イベント処理
+	 */	//
+	public function load() {
+		if (!isset($_SESSION[DOMAIN]["Lib.user"])) {
+			header("Location: ../login.html");
+			exit();
+		}
+		Filter::set($_GET["page"], 7, "[^0-9]");
+		if (!$_GET["page"]) return;
+
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setColumn("url, page_name");
+		$dac->setOption("ROWID = [0]", $_GET["page"]);
+		$dac->selectRows("t_page", $rows);
+		if (count($rows) == 0) return;
+		
+		$this->name = $rows[0]["page_name"];
+		$this->class = explode("\n", file_get_contents("{$this->path}{$rows[0]["url"]}.class"));
+		$this->html = explode("\n", file_get_contents("{$this->path}{$rows[0]["url"]}"));
+	}
+}
+/**
+ * ページインスタンス生成しload()を実行する
+ */
+$page = new Page_CodeView();
+$page->load();

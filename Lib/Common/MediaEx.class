@@ -1,0 +1,401 @@
+<?php
+ /**
+ * 文字コード UTF-8N 改行コードLF
+ * メディアククラスエクステンション
+ *
+ * プロパティーアクセスは__get()__set()マジックメソッドによって制御される。
+ * 
+ * @package    Lib
+ * @copyright  Copyright (c) 2019-2020 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.200811
+ */
+namespace Lib;
+
+require_once("Common/DAC.class");
+require_once("Common/Fixed.class");
+require_once("Common/Trace.class");
+
+class MediaEx {
+	/**
+	 * @property-read string $message エラーメッセージ
+	 * @property string $pathConfig 設定ファイルパス
+	 * @property string $auth 認証データ配列
+	 * @property string $user ユーザーデータ配列
+	 * @property bool  $addBlog ブログ連動フラグ
+	 */
+	private $message;
+	private $path;
+	private $pathConfig;
+	private $pathData;
+	private $auth;
+	private $user;
+	private $addBlog;
+	/**
+	 * コンストラクタ
+	 */
+	public function __construct(string $path) {
+		$this->path = $path;
+		$this->pathConfig = "{$path}_DATA/_config.db";
+		$this->pathData = "{$path}_DATA/_sns_self.db";
+	}
+	/**
+	 * マジックメソッドゲッター
+	 *
+	 * @param string $name メンバ変数名
+	 */
+	public function __get(string $name) {
+		return $this->$name;
+	}
+	/**
+	 * マジックメソッドセッター
+	 *
+	 * @param string $name メンバ変数名
+	 * @param mixed $value メンバ変数値
+	 */
+	public function __set(string $name, $value) {
+	}
+	/**
+	 * メディアをロードする
+	 */
+	public function load() {
+		if (!$this->loadConfig()) return false;
+		if (!$this->refreshToken()) return false;
+		if (!$this->getUser()) return false;
+		if (!$this->getMedia()) return false;
+		return true;
+	}
+	/**
+	 * 設定ロード
+	 */
+	public function loadConfig() {
+		if (!is_file($this->pathConfig)) {
+			$this->message = "{$this->pathConfig} 設定ファイルが見つかりませんでした。";
+			return false;
+		}
+		$dac = new DAC(["path" => $this->pathConfig], "sqlite");
+		try {
+			$dac->open();
+			$dac->setColumn("name, value");
+			$dac->setOption("service = 'instagram_oauth'");
+			$rows = $dac->select("t_config");
+			
+			$auth = array();
+			foreach ($rows as $row) $auth[$row["name"]] = $row["value"];
+			
+			if (!$auth["user_id"] || !$auth["access_token"]) {
+				$this->message = "アクセストークンが取得できていません。";
+				return false;
+			}
+			$this->auth = $auth;
+			
+			$dac->clear();
+			$dac->setColumn("value");
+			$dac->setOption("service = 'instagram'");
+			$dac->setOption("name = 'blog_link'");
+			$this->addBlog = $dac->scalar("t_config");
+			
+			return true;
+		} catch (\Exception $ex) {
+			$this->message = $ex->getMessage();
+			return false;
+		} finally {
+			$dac->close();
+		}
+	}
+	/**
+	 * added: 200225 長期アクセストークンを更新する
+	 * 長期トークン取得後、24時間経過し有効期限が切れていない場合に更新できる
+	 * 24時間経過前にアクセスしてもエラーにはならずaccess_token,token_type,expires_inが返される
+	 */
+	public function refreshToken() {
+		if (!$this->auth["tm_update"]) return true;
+		if (strtotime($this->auth["tm_update"]) > strtotime("-2 day")) return true;
+
+		$url = "https://graph.instagram.com/refresh_access_token";
+		$url.= "?grant_type=ig_refresh_token";
+		$url.= "&access_token={$this->auth["access_token"]}";
+		$json = file_get_contents($url);
+		
+		if (!$json) {
+			$this->message = "アクセストークンを更新できませんでした。\n{$json}";
+			return false;
+		}
+		$res = json_decode($json, true);
+		$dac = new DAC(["path" => $this->pathConfig], "sqlite");
+		try {
+			$dac->open();
+			$dac->begin();
+
+			$res["tm_update"] = date("Y/m/d H:i:s");
+			foreach ($res as $name => $value) {
+				$dac->clear();
+				$dac->setColumn("Count(*)");
+				$dac->setOption("service = 'instagram_oauth'");
+				$dac->setOption("name = [0]", $name);
+				if ($dac->scalar("t_config")) {
+					$dac->setData("value", $value);
+					$dac->update("t_config");
+				} else {
+					$dac->setData("service", "instagram_oauth");
+					$dac->setData("name", $name);
+					$dac->setData("value", $value);
+					$dac->insert("t_config");
+				}
+			}
+			$dac->commit();
+			$this->auth["access_token"] = $res["access_token"];
+			$this->auth["expires_in"] = $res["expires_in"];
+			return true;
+		} catch (\Exception $ex) {
+			$this->message = $ex->getMessage();
+			return false;
+		} finally {
+			$dac->close();
+		}
+	}
+	/**
+	 * ユーザーのプロフィールを取得する
+	 * 取得可能フィールド: id,username,media_count,account_type (idは必ず返ってくる)
+	 */
+	public function getUser() {
+		//Trace::setText($this->auth["user_id"]);
+		//Trace::setText($this->auth["access_token"]);
+		$url = "https://graph.instagram.com/{$this->auth["user_id"]}";
+		$fields = "username,media_count,account_type";
+		$json = file_get_contents("{$url}?fields={$fields}&access_token={$this->auth["access_token"]}");
+
+		if (!$json) {
+			$this->message = "ユーザーのプロフィールを取得出来ませんでした。";
+			return false;
+		}
+		$this->user = json_decode($json, true);
+		$dac = new DAC(["path" => $this->pathConfig], "sqlite");
+		try {
+			$dac->open();
+			foreach ($this->user as $name => $value) {
+				$dac->clear();
+				$dac->setColumn("Count(*)");
+				$dac->setOption("service = 'instagram_user'");
+				$dac->setOption("name = [0]", $name);
+				if ($dac->scalar("t_config")) {
+					$dac->setData("value", $value);
+					$dac->update("t_config");
+				} else {
+					$dac->setData("service", "instagram_user");
+					$dac->setData("name", $name);
+					$dac->setData("value", $value);
+					$dac->insert("t_config");
+				}
+			}
+			return true;
+		} catch (\Exception $ex) {
+			$this->message = $ex->getMessage();
+			return false;
+		} finally {
+			$dac->close();
+		}
+	}
+	/**
+	 * ユーザーのメディア取得する（idは必ず返ってくる）
+	 * caption: メディアのキャプションテキスト
+	 * id: メディアのID
+	 * media_type: メディアのタイプ(IMAGE、VIDEO、CAROUSEL_ALBUM)
+	 * media_url: メディアのURL
+	 * permanlink: メディアの永続URL（191018 返ってこない）
+	 * thumbnail_url: メディアのサムネイル画像のURL(VIDEOメディアのみ)
+	 * timestamp: メディアの公開日付
+	 * username: メディア所有者のユーザーネーム
+	 */
+	public function getMedia() {
+		$url = "https://graph.instagram.com/me/media";
+		$fields = "id,caption,media_type,media_url,timestamp,thumbnail_url";
+		$json = file_get_contents("{$url}?fields={$fields}&access_token={$this->auth["access_token"]}");
+
+		if (!$json) {
+			$this->message = "メディアを取得出来ませんでした。";
+			return false;
+		}
+		
+		$data = json_decode($json, true);
+		if (!$data["data"]) {
+			$this->message = "メディアは登録されていません。。";
+			return false;
+		}
+		
+		if (!$this->loadCacheFile($this->pathData)) return false;
+		if (!$this->updateCacheFile($this->pathData)) return false;
+
+		try {
+			$dac = new DAC(["path" => $this->pathData], "sqlite");
+			$dac->open();
+
+			foreach ($data["data"] as $media) {
+				// note: 年月ごとのディレクトリに保存する
+				$pathStor = "{$this->path}img/sns/" . date("Ym", strtotime($media["timestamp"]));
+				if (!is_dir($pathStor)) mkdir($pathStor, 0755, true);
+
+				$dac->clear();
+				$dac->setColumn("Count(*) As cnt");
+				$dac->setOption("media_id = [0]", $media["id"]);
+				if ($dac->scalar("t_media")) continue;
+
+				$dac->clear();
+				if ($media["media_type"] == "VIDEO") {
+					// modified: 191025 動画は保存できなくなった（サムネイル画像を保存している）
+					//$buff = file_get_contents($media["media_url"]);
+					//$path = "{$pathStor}/{$media["id"]}.mp4";
+					$buff = file_get_contents($media["thumbnail_url"]);
+					$path = "{$pathStor}/{$media["id"]}.jpg";
+					if (file_put_contents($path, $buff) === false) continue;
+					$dac->setData("media_path", str_replace("{$this->path}", "", $path));
+					$dac->setData("media_type", "image");
+				} else {
+					$buff = file_get_contents($media["media_url"]);
+					$path = "{$pathStor}/{$media["id"]}.jpg";
+					if (file_put_contents($path, $buff) === false) continue;
+					$dac->setData("media_path", str_replace("{$this->path}", "", $path));
+					$dac->setData("media_type", strtolower($media["media_type"]));
+				}
+				$dac->setData("media_id", $media["id"]);
+				$dac->setData("caption", $media["caption"]);
+				$dac->setData("tags", $this->getTag($media["caption"]));
+				$dac->setData("link_url", "https://www.instagram.com/{$this->user["username"]}/");
+				$dac->setData("tm_save", date("Y/m/d H:i:s", strtotime($media["timestamp"])));
+				$dac->setData("visible", "1");
+				$dac->insert("t_media");
+			}
+		} catch (\Exception $ex) {
+			$this->message = $ex->getMessage();
+			return false;
+		} finally {
+			$dac->close();
+		}
+		if ($this->addBlog) return $this->saveBlog($data);
+		else return true;
+	}
+	/**
+	 * メディアをブログに登録する
+	 * modified: 200729 detailがnullの場合に空文字を挿入
+	 */
+	private function saveBlog($data) {
+		try {
+			$dac = new DAC(Fixed::connection(), "mysql");
+			$dac->open();
+			$dac->begin();
+			
+			foreach ($data["data"] as $media) {
+				$path = "img/sns/" . date("Ym", strtotime($media["timestamp"]));
+				
+				$dac->clear();
+				$dac->setColumn("Count(*)");
+				$dac->setOption("media_id = [0]", $media["id"]);
+				if ($dac->scalar("blog_page")) continue;
+				// note: ブログ記事登録
+				$dac->clear();
+				$dac->setData("title", explode("\n", $media["caption"])[0]);
+				$dac->setData("detail", ($media["caption"]) ? $media["caption"] : "");
+				$dac->setData("tag", $this->getTag($media["caption"]));
+				$dac->setData("tm_wrote", date("Y/m/d H:i:s", strtotime($media["timestamp"])));
+				$dac->setData("visible", "1");
+				$dac->setData("media_id", $media["id"]);
+				$dac->insert("blog_page");
+				$ROWID = $dac->getSequence();
+
+				// note: ブログ画像登録
+				$dac->clear();
+				$dac->setData("page_ROWID", $ROWID);
+				// modified: 191025 動画は保存できなくなった（サムネイル画像を保存している）
+				//$dac->setData("image_src", (strtolower($media["media_type"]) == "video") ? "{$path}/{$media["id"]}.mp4" : "{$path}/{$media["id"]}.jpg");
+				$dac->setData("image_src", "{$path}/{$media["id"]}.jpg");
+				$dac->setData("image_link", "https://www.instagram.com/{$this->user["username"]}/");
+				$dac->insert("blog_photo");
+			}
+			$dac->commit();
+			return true;
+		} catch (Exception $ex) {
+			$this->message = $ex->getMessage();
+			return false;
+		} finally {
+			$dac->close();
+		}
+	}
+	/**
+	 * キャプションの含まれるハッシュタグを獲得する
+	 *
+	 * @return string ハッシュタグ
+	 */
+	private function getTag($caption) {
+		//preg_match_all("/(#.+ #|#.+\n|#.+$)/", $caption, $tags);
+		preg_match_all("/(#[^#]+ |#[^#]+\n|#[^#]+$)/", $caption, $tags);
+		if (!is_array($tags[1])) return "";
+		foreach ($tags[1] as $tag) $array[] = rtrim($tag, " #\n");
+		return implode(" ", $array). " ";
+	}
+	/**
+	 * キャッシュデータベースを作成する
+	 *
+	 * @return bool 成功時に true を返す
+	 */
+	private function loadCacheFile($path) {
+		// note: データファイルが存在する場合は return
+		if (is_file($path)) return true;
+		
+		// note: データベース作成
+		try {
+			file_put_contents($path, "");
+			$dac = new DAC(["path" => $path], "sqlite");
+			
+			$dac->open();
+			$dac->command = "CREATE TABLE [t_media] (
+				[ROWID] INTEGER PRIMARY KEY AUTOINCREMENT,
+				[media_id] TEXT,
+				[media_path] TEXT,
+				[media_type] TEXT,
+				[caption] TEXT,
+				[tags] TEXT,
+				[likes] INTEGER,
+				[link_url] TEXT,
+				[visible] INTEGER,
+				[tm_save] TEXT)";
+			$dac->execute();
+			return true;
+		} catch (\Exception $ex) {
+			$this->message = $ex->getMessage();
+			return false;
+		} finally {
+			$dac->close();
+		}
+	}
+	/**
+	 * added: 190627 データベース定義の変更
+	 *
+	 * @return bool 成功時に true を返す
+	 */
+	private function updateCacheFile($path) {
+		try {
+			$dac = new DAC(["path" => $path], "sqlite");
+			$dac->open();
+			$dac->begin();
+
+			// note: カラムチェック
+			$dac->command = "PRAGMA TABLE_INFO(t_media)";
+			$rows = $dac->query();
+			foreach ($rows as $row) {
+				if ($row["name"] == "media_type") { $hasMediaType = true; break; }
+			}
+			// note: 不足カラム追加
+			if (!$hasMediaType) {
+				$dac->command = "ALTER TABLE t_media ADD COLUMN media_type TEXT";
+				$dac->execute();
+			}
+			$dac->commit();
+			return true;
+		} catch (\Exception $ex) {
+			$this->message = $ex->getMessage();
+			return false;
+		} finally {
+			$dac->close();
+		}
+	}
+}

@@ -1,0 +1,62 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * JSリストページ
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2019 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.191225
+ */
+require_once("js_list.html.class");
+?>
+<?php include("inc/header.inc"); ?>
+<style>
+table td:nth-child(2) { width: 160px; }
+table td:nth-child(3) { width: 80px; padding: 0 2px 0 10px; }
+section .content .add a { width: 70px; }
+</style>
+<section>
+	<div class="wrap clearfix">
+		<div id="menu">
+			<?php include("inc/menu.inc"); ?>
+		</div>
+		<script>
+		$(function() {
+			$("#menu .caption:eq(4) label").click();
+		});
+		</script>
+		<div class="content">
+			<article>
+				<?= ($page->errors["message"]) ? "<p class=\"error\">{$page->errors["message"]}</p>" : "" ?>
+			</article>
+			<article class="clearfix">
+				<h2>JS Files</h2>
+				<div class="add">
+					<a href="js.html">Add</a>
+				</div>
+			</article>
+			<div class="table">
+				<table>
+					<thead>
+						<tr>
+							<td>File name</td>
+							<td>Update date</td>
+							<td></td>
+						</tr>
+					</thead>
+					<tbody>
+						<?php foreach($page->rows as $row) { ?>
+						<tr>
+							<td><?= ($row["file_path"]) ? "{$row["file_path"]}/" : "js/" ?><?= $row["js_name"] ?>.js</td>
+							<td><?= date("Y/m/d H:i", strtotime($row["tm_update"])) ?></td>
+							<td class="edit"><a href="js.html?ROWID=<?= $row["ROWID"] ?>">Edit</a></td>
+						</tr>
+						<?php } ?>
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+</section>
+<?php include("inc/footer.inc"); ?>

@@ -1,0 +1,270 @@
+<?php
+ /**
+ * Application controller class
+ *
+ * @charset    UTF-8N
+ * @package    Lib
+ * @copyright  Copyright (c) 2019-2020 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    LIB PHP Framework 3.2.200123
+ */
+namespace Lib;
+
+class Lib {
+	/**
+	 * Check login status when loading page.
+	 */
+	public static function authPage($page) {
+		if ($_SESSION[DOMAIN]["Lib.user"]) return;
+		
+		if ($_SERVER["HTTP_X_REQUESTED_WITH"] == "XMLHttpRequest") {
+			$message = (LANG == "ja") ? "セッションの有効期限が切れました。ログアウトしてください。" : "Session has expired. Please log out.";
+			if (!$_POST) {
+				$html.= "<div class=\"message\">";
+				$html.= "	<header><h1>Warning</h1><a>x</a></header>";
+				$html.= "	<p>{$message}</p>";
+				$html.= "</div>";
+				die($html);
+			} else {
+				$page->response($message, false);
+			}
+		} else {
+			$page->location("{$page->path}Lib/login.html");
+		}
+	}
+	/**
+	 * Database connection
+	 *
+	 * @return array Database connection array
+	 */
+	public static function connection() : array {
+		return array(
+			"host" => DB_HOST,
+			"dbname" => DB_NAME,
+			"user" => DB_USER,
+			"password" => DB_PASS
+		);
+	}
+	/**
+	 * USE directive
+	 *
+	 * @return array USE directive array
+	 */
+	public static function use() : array {
+		$files = scandir(__DIR__);
+		$name = [];
+		foreach ($files as $file) {
+			$ss = explode(".", $file);
+			if ($ss[1] != "class") continue;
+			if (in_array($ss[0], ["Page", "Event"])) continue;
+			$name[] = $ss[0];
+		}
+		return $name;
+	}
+	/**
+	 * Error messages
+	 *
+	 * @return array Error message array
+	 */
+	public static function error() : array {
+		if (LANG == "ja") {
+			return array(
+				"required" => "入力して下さい。"
+			);
+		} else {
+			return array(
+				"required" => "Please enter."
+			);
+		}
+	}
+	/**
+	 * Image filter type
+	 *
+	 * @return array Image filter type array
+	 */
+	public static function imageFilter() : array {
+		if (LANG == "ja") {
+			return array(
+				"IMG_FILTER_NEGATE" => "色の反転",
+				"IMG_FILTER_GRAYSCALE" => "グレースケール",
+				"IMG_FILTER_BRIGHTNESS" => "輝度",
+				"IMG_FILTER_CONTRAST" => "コントラスト",
+				"IMG_FILTER_COLORIZE" => "カラー",
+				"IMG_FILTER_EDGEDETEC" => "エッジ",
+				"IMG_FILTER_EMBOSS" => "エンボス",
+				"IMG_FILTER_GAUSSIAN_BLUR" => "ガウス",
+				"IMG_FILTER_SELECTIVE_BLUR" => "ぼかし",
+				"IMG_FILTER_MEAN_REMOVAL" => "スケッチ",
+				"IMG_FILTER_SMOOTH" => "滑らか",
+				"IMG_FILTER_PIXELATE" => "モザイク"
+			);
+		} else {
+			return array(
+				"IMG_FILTER_NEGATE" => "Reverses",
+				"IMG_FILTER_GRAYSCALE" => "Grayscale",
+				"IMG_FILTER_BRIGHTNESS" => "Brightness",
+				"IMG_FILTER_CONTRAST" => "Contrast",
+				"IMG_FILTER_COLORIZE" => "Colorize",
+				"IMG_FILTER_EDGEDETEC" => "Edge",
+				"IMG_FILTER_EMBOSS" => "Emboss",
+				"IMG_FILTER_GAUSSIAN_BLUR" => "Gaussian",
+				"IMG_FILTER_SELECTIVE_BLUR" => "Blurs",
+				"IMG_FILTER_MEAN_REMOVAL" => "Sketchy",
+				"IMG_FILTER_SMOOTH" => "Smooth",
+				"IMG_FILTER_PIXELATE" => "Pixelate"
+			);
+		}
+	}
+	/**
+	 * Conversion setting
+	 *
+	 * @return array Conversion setting array
+	 */
+	public static function convert() : array {
+		if (LANG == "ja") {
+			return array(
+				"1" => "変換を選択する",
+				"2" => "変換を入力する",
+				"3" => "変換しない"
+			);
+		} else {
+			return array(
+				"1" => "Select conversion option",
+				"2" => "Enter conversion option",
+				"3" => "Do not convert"
+			);
+		}
+	}
+	/**
+	 * Conversion option
+	 *
+	 * @return array Conversion option array
+	 */
+	public static function convertOption() : array {
+		if (LANG == "ja") {
+			return array(
+				"as" => "半角英数字",
+				"AS" => "全角英数字",
+				"khs" => "半角カナ",
+				"KVCS" => "全角カナ",
+				"HVcS" => "全角かな"
+			);
+		} else {
+			return array(
+				"as" => "Half-width alphanumeric characters",
+				"AS" => "Double-byte alphanumeric characters",
+				"khs" => "Half-width kana",
+				"KVCS" => "full-width Kana",
+				"HVcS" => "Full-width Hiragana"
+			);
+		}
+	}
+	/**
+	 * Filter setting
+	 *
+	 * @return array Filter setting array
+	 */
+	public static function filter() : array {
+		if (LANG == "ja") {
+			return array(
+				"4" => "危険文字を除去",
+				"1" => "制約を選択する",
+				"2" => "制約を入力する",
+				"3" => "制約しない"
+			);
+		} else {
+			return array(
+				"4" => "Remove dangerous characters",
+				"1" => "Select constraints",
+				"2" => "Enter constraints",
+				"3" => "Do not constrain"
+			);
+		}
+	}
+	/**
+	 * Filter option
+	 *
+	 * @return array Filter option array
+	 */
+	public static function filterOption() : array {
+		if (LANG == "ja") {
+			return array(
+				"0-9" => "数字",
+				"a-z" => "英小文字",
+				"A-Z" => "英大文字",
+				"_" => "半角アンダースコア",
+				"@" => "半角アットマーク",
+				"." => "半角ドット",
+				"\-" => "半角ハイフン",
+				"/" => "半角スラッシュ"
+			);
+		} else {
+			return array(
+				"0-9" => "Number",
+				"a-z" => "Lowercase alphabet",
+				"A-Z" => "Uppercase alphabet",
+				"_" => "Underscore",
+				"@" => "At sign",
+				"." => "Dot",
+				"\-" => "Hyphen",
+				"/" => "Slash"
+			);
+		}
+	}
+	/**
+	 * Required select
+	 *
+	 * @return array Required select array
+	 */
+	public static function required() : array {
+		if (LANG == "ja") {
+			return array(
+				"1" => "必須",
+				"0" => "必須でない"
+			);
+		} else {
+			return array(
+				"1" => "Required",
+				"0" => "Not required"
+			);
+		}
+	}
+	/**
+	 * Required select
+	 *
+	 * @return array Required select array
+	 */
+	public static function saveSession() : array {
+		if (LANG == "ja") {
+			return array(
+				"1" => "保存する",
+				"0" => "保存しない"
+			);
+		} else {
+			return array(
+				"1" => "Save",
+				"0" => "Not save"
+			);
+		}
+	}
+	/**
+	 * Template type
+	 *
+	 * @return array Template type array
+	 */
+	public static function template() : array {
+		if (LANG == "ja") {
+			return array(
+				"header" => "ヘッダー",
+				"footer" => "フッター",
+				"parts" => "パーツ"
+			);
+		} else {
+			return array(
+				"header" => "header",
+				"footer" => "footer",
+				"parts" => "parts"
+			);
+		}
+	}
+}

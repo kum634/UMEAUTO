@@ -1,0 +1,118 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * ファイルクラス
+ *
+ * プロパティーアクセスは__get()__set()マジックメソッドによって制御される。
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2017-2019 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.191220
+ */
+namespace Lib;
+
+class FileClass {
+	/**
+	 * @property-read string $message エラーメッセージ
+	 */
+	private $message;
+	/**
+	 * コンストラクタ
+	 */
+	public function __construct() {
+	}
+	/**
+	 * マジックメソッドゲッター
+	 *
+	 * @param string $name メンバ変数名
+	 */
+	public function __get(string $name) {
+		return $this->$name;
+	}
+	/**
+	 * マジックメソッドセッター
+	 *
+	 * @param string $name メンバ変数名
+	 * @param mixed $value メンバ変数値
+	 */
+	public function __set(string $name, $value) { }
+	/**
+	 * 指定パスのディレクトリー情報を返す
+	 *
+	 * @param string $path ディレクトリーパス
+	 * @return array ディレクトリー情報連想配列
+	 */
+	public function getDirectorys(string $path) {
+		if (!is_dir($path)) {
+			$this->message = "不明なパスが指定されました。";
+			return null;
+		}
+		try {
+			$dirs = array();
+			$handle = opendir($path);
+
+			while (($file = readdir($handle)) !== false) {
+				if ($file == "." || $file == ".." || !is_dir("{$path}/{$file}")) continue;
+				$dirs[] = [ "name" => $file, "path" => "{$path}/{$file}" ];
+			}
+			asort($dirs);
+			return $dirs;
+		} catch (\Throwable $ex) {
+			$this->message = $ex->getMessage();
+			return null;
+		} finally {
+			if ($handle) closedir($handle);
+		}
+	}
+	/**
+	 * 指定パスのファイル情報を返す
+	 * modified: 181204 ソート修正（ksort -> sort）
+	 *
+	 * @param string $path ディレクトリーパス
+	 * @param string $extentions 検索対象の拡張子
+	 * @return array ファイル情報連想配列
+	 */
+	public function getFiles(string $path, $extentions = ["jpg", "jpeg", "gif", "png"]) {
+		$path = rtrim($path, "/");
+		if (!is_dir($path)) {
+			$this->message = "不明なパスが指定されました。";
+			return null;
+		}
+		try {
+			$files = array();
+			$handle = opendir($path);
+
+			while (($file = readdir($handle)) !== false) {
+				if (!is_file("{$path}/{$file}")) continue;
+
+				$ext = strtolower(end(explode(".", $file)));
+				if (!in_array($ext, $extentions)) continue;
+
+				$files[$file] = [ "name" => $file, "path" => "{$path}/{$file}" ];
+			}
+			sort($files);
+			return $files;
+		} catch (Throwable $ex) {
+			$this->message = $ex->getMessage();
+			return null;
+		} finally {
+			if ($handle) closedir($handle);
+		}
+	}
+	/**
+	 * 指定ディレクトリーを削除する
+	 *
+	 * @param string $path ディレクトリーパス
+	 */
+	public static function removeDirectory($path) {
+		$dir = $path;
+		$files = array();
+		while ($glob = glob($dir)) {
+			$files = array_merge($glob, $files);
+			$dir.= "/*";
+		}
+		array_map("unlink", array_filter($files, "is_file"));
+		array_map("rmdir", array_filter($files, "is_dir"));
+	}
+}

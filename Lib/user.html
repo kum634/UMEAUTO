@@ -1,0 +1,86 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * ユーザーページ
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2019 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.191226
+ */
+require_once("user.html.class");
+?>
+<?php include("inc/header.inc"); ?>
+<style>
+input[type="text"], input[type="password"] { width: 200px; }
+section form dl dd label { width: 100px; }
+</style>
+
+<section>
+	<div class="wrap clearfix">
+		<div id="menu">
+			<?php include("inc/menu.inc"); ?>
+		</div><!-- #menu -->
+		<script>
+		var isChange = false;
+		$(function() {
+			$("form dl dd span").parent().parent().addClass("error");
+			$("#menu .caption:eq(0) label").click();
+			$("form").on("change", function() {
+				isChange = true;
+			});
+			$("#btn_back").on("click", function() {
+				if (isChange && !confirm("保存せずに戻りますか？")) return false;
+			});
+		});
+		</script>
+		<div class="content">
+			<article>
+				<?= ($page->errors["form"]) ? "<p>{$page->errors["form"]}</p>" : "" ?>
+				<h2><?= ($page->values["user_name"]) ? $page->values["user_name"] : "New user" ?></h2>
+			</article>
+			<form method="post" class=" clearfix">
+				<dl>
+					<dt>ID</dt>
+					<dd>
+						<input type="text" name="user_id" value="<?= $page->values["user_id"] ?>">
+						<?= ($page->errors["user_id"]) ? "<span>{$page->errors["user_id"]}</span>" : "" ?>
+					</dd>
+				</dl>					
+				<dl>
+					<dt>User</dt>
+					<dd>
+						<input type="text" name="user_name" value="<?= $page->values["user_name"] ?>">
+						<?= ($page->errors["user_name"]) ? "<span>{$page->errors["user_name"]}</span>" : "" ?>
+					</dd>
+				</dl>
+				<dl>
+					<dt>Password</dt>
+					<dd>
+						<input type="password" name="password" value="<?= $page->values["password"] ?>">
+						<?= ($page->errors["password"]) ? "<span>{$page->errors["password"]}</span>" : "" ?>
+					</dd>
+				</dl>
+				<dl>
+					<dt>Developer</dt>
+					<dd>
+						<label><input type="radio" name="is_developer" value="1"<?= ($page->values["is_developer"]) ? " checked" : "" ?>>YES</label>
+						<label><input type="radio" name="is_developer" value="0"<?= (!$page->values["is_developer"]) ? " checked" : "" ?>>NO</label>
+					</dd>
+				</dl>
+				<div class="clearfix">
+					<div class="left">
+						<button id="btn_back" onclick="$('#action').val('back');">戻る</button>
+						<button id="btn_save" onclick="$('#action').val('save');">保存</button>
+					</div>
+					<div class="right">
+						<button id="btn_delete" onclick="if (confirm('削除してもよろしいですか？')) { $('#action').val('delete');$('form').submit(); } return false;">削除</button>
+					</div>
+					<input type="hidden" id="action" name="action" >
+					<input type="hidden" name="ROWID" value="<?= $page->values["ROWID"] ?>">
+				</div>
+			</form>
+		</div><!-- #content -->
+	</div><!-- #wrap -->
+</section>
+<?php include("inc/footer.inc"); ?>

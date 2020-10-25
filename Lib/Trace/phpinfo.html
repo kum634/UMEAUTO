@@ -1,0 +1,7 @@
+<?php
+require_once("../Conf.inc");
+if (!isset($_SESSION[DOMAIN]["Lib.user"])) {
+	header("Location: ../login.html");
+	exit();
+}
+phpinfo();

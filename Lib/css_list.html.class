@@ -1,0 +1,70 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * CSSリストページクラス
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2020 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.200419
+ */
+namespace Lib;
+
+require_once("Conf.inc");
+require_once("Common/Page.class");
+require_once("Common/DAC.class");
+
+class Page_CSS_List extends Page {
+	public $title;
+	/**
+	 * @property array $rorws CSSデータ行配列
+	 */
+	public $rows;
+	/**
+	 * 
+	 */
+	public function default(){
+		Lib::authPage($this);
+		$this->title = "CSS Files - ";
+
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setColumn("ROWID");
+		$dac->setColumn("css_name");
+		// added: 170907
+		$dac->setColumn("file_path");
+		$dac->setColumn("n_min");
+		$dac->setColumn("n_max");
+		$dac->setColumn("tm_update");
+		$dac->setOrder("css_name");
+		
+		if (!$dac->selectRows("t_css", $rows)) {
+			$this->errors["message"] = $dac->message;
+			return true;
+		} else {
+			$this->rows = $rows;
+			return true;
+		}
+	}
+	/**
+	 * 最小幅と最大幅からサイズ指定表記を返す
+	 * 
+	 * @param int $min 最小幅
+	 * @param int $min 最大幅
+	 */
+	public function getSizeView($min, $max) {
+		if ($min && $max) return "{$min}px ～ {$max}px";
+		else if ($min) return "{$min}px ～";
+		else if ($max) return "～ {$max}px";
+		else return "すべて";
+	}
+}
+/**
+ * ページインスタンス生成
+ * 実行パス、ルール連想配列及びページセッション名を指定する
+ */
+$page = new Page_CSS_List(__DIR__, null,"Lib.page.css_list");
+/**
+ * イベント発生時のコールバック関数、移動先及びセッション保存の有無をセットしload()を実行する
+ */
+$page->setEvent("default", null, array($page, "default"), "", false);
+$page->load();

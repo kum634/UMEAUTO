@@ -1,0 +1,28 @@
+<!-- -->
+        </article>
+      </div>
+    </main>
+  </div>
+  <div class="wrapper row5">
+    <nav id="menu_f" class="fixedform view-st"> <i id="close_menu_f" class="fas fa-times"></i>
+      <h1>整備モデル募集中!<br>
+        初めてご利用の方なら工賃無料</h1>
+      <p><a class="formbtn_fixedform" href="request.html">整備依頼はこちら　<i class="fas fa-mouse-pointer"></i></a></p>
+    </nav>
+    <footer id="main_footer">
+      <ul>
+        <li><a href="shop.html">会社案内 </a></li>
+        <li><a href="service.html">サービスメニュー </a></li>
+        <li><a href="process.html">出張整備の流れ </a></li>
+        <li><a href="qa.html">出張整備Q&amp;A </a></li>
+        <li><a href="sell.html">中古部品販売</a></li>
+        <li><a href="contact.html">お問い合わせ </a></li>
+        <li><a href="sitemap.html">サイトマップ</a></li>
+      </ul>
+      <p> Copyright (C)2020ウメオートAll Rights Reserved. </p>
+    </footer>
+  </div>
+  <script type="text/javascript" src="<?= $page->path ?>js/burger_menu.js"></script>
+  <script type="text/javascript" src="<?= $page->path ?>js/advertising.js"></script>
+</body>
+</html>

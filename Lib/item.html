@@ -1,0 +1,420 @@
+<?php 
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * アイテムページ
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2020 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.200114
+ */
+require_once("item.html.class");
+?>
+<?php include("inc/header.inc"); ?>
+<style>
+section .content .add a { width: 100px; }
+section form dl dt { width: 160px; }
+section form dl dd button { margin: 0; }
+input[type="text"], textarea { width: 60%; }
+
+section form dl.textarea dd {
+	position: relative;
+}
+section form dl.textarea dd a {
+	padding: 0 10px;
+	width: auto;
+	height: 30px;
+	line-height: 30px;
+	text-align: center;
+	background: #727272;
+	border-radius: 0 0 4px 4px;
+	color: #fff;
+	position: absolute;
+	top: 0px;
+	right: 20px;
+	z-index: 4;
+	cursor: pointer;
+}
+section form dl.textarea dd a:hover {
+	text-decoration: none;
+	opacity: 0.5;
+}
+#modal .docbottom .left { padding-top: 20px; }
+#modal_table table {
+	margin-bottom: 20px;
+	table-layout: fixed;
+	border-collapse: collapse;
+}
+#modal_table table tr {
+	border: none;
+}
+#modal_table table th {
+	padding: 10px 0;
+	width: auto !important;
+	border: none;
+}
+#modal_table table td {
+	padding: 0;
+	width: auto !important;
+	border: 1px solid #ccc;
+	background: #fff;
+}
+#modal_table table td input {
+	border: none;
+	border-radius: 0;
+	width: 100%;
+	height: 30px;
+}
+#modal_table > div.add p {
+	float: left;
+}
+#modal_table > div.add a {
+	display: block;
+	width: 85px;
+	height: 30px;
+	line-height: 30px;
+	font-size: 12px;
+	text-indent: 30px;
+	text-decoration: none;
+	cursor: default;
+	background: #00c683 url(image/common/arrow_plus.png) no-repeat;
+	background-size: 20px;
+	background-position: 10px center;
+	border-radius: 4px;
+	color: #fff;
+	float: right;
+}
+#modal_table > div.add a:hover {
+	opacity: 0.5;
+}
+</style>
+<section>
+	<div class="wrap clearfix">
+		<div id="menu">
+			<?php include("inc/menu.inc"); ?>
+		</div><!-- #menu -->
+		<script>
+			var isCancel = false;
+			var isChange = false;
+			var editor;
+			// note: ロック状態を確認する
+			function isLocked() {
+				return true;
+			}
+			// note: モーダル表示
+			function loadModal() {
+				$.post(
+					location.href,
+					{ "action": "modal", "category": "<?= $_GET["category"] ?>" },
+					function(res) {
+						$("#ajax_form").html(res);
+						$("#modal img.load").hide();
+						$("#modal .docbottom .left").html("ドラッグ＆ドロップでアップロードを開始します。");
+					},
+					"html");
+			}
+			// note: アップロード
+			function uploadFile(form) {
+				form.append("action", "upload");
+				form.append("category", "<?= $_GET["category"] ?>");
+
+				$.ajax(location.href, {
+					async: true,
+					method: "POST",
+					contentType: false,
+					processData: false,
+					data: form,
+					dataType: "html",
+					error: function(e) {
+						console.log(e);
+					},
+					success: function(res) {
+						if (isCancel) return;
+						$("#ajax_form").html(res);
+						$("#modal img.load").hide();
+						$("#modal .docbottom .left").html("アップロードを完了しました。");
+					}
+				});
+			}
+			// note: ファイル削除
+			function removeFile(name) {
+				$.post(
+					location.href,
+					{ "action": "unlink", "file_name": name, "category": "<?= $_GET["category"] ?>" },
+					function(res) {
+						$("#ajax_form").html(res);
+						$("#modal img.load").hide();
+						$("#modal .docbottom .left").html("ドラッグ＆ドロップでアップロードを開始します。");
+					},
+					"html");
+			}
+			// note: イメージプレビュー
+			function preview() {
+				url = $("#uri_image").val();
+				if (url == "") $("#preview").html("");
+				else if (url.indexOf("http") == 0) $("#preview").html("<img src='" + url + "'>");
+				else $("#preview").html("<img src='../" + url + "'>");
+			}
+			$(function() {
+				// note: イメージプレビュー実行
+				preview();
+
+				// note: エラー表示にクラスを追加する
+				$("form dl dd span").parent().parent().addClass("error");
+				// note: フォーム要素の変更イベント
+				$("form").on("change", function() {
+					isChange = true;
+				});
+				// note: 戻るボタンクリックイベント
+				$("#btn_back").on("click", function() {
+					if (isChange && !confirm("保存せずに戻りますか？")) return false;
+					$("#action").val("back");
+				});
+				// note: 保存ボタンクリックイベント
+				$("#btn_save").on("click", function() {
+					$("#tm_write").val($("#year").val() + "-" + $("#month").val() + "-" + $("#day").val());
+					$("textarea[name=text1]").val(editor.getValue());
+					$("#action").val("save");
+				});
+				// note: 削除ボタンクリックイベント
+				$("#btn_delete").on("click", function() {
+					if ($("#ROWID").val() == "NEW") return false;
+					if (!confirm("<?= $page->values["title"] ?>を削除してもよろしいですか？")) return false;
+					$("#action").val("delete");
+				});
+				// note: 選択ボタンクリック
+				$("#btn_image").on("click", function() {
+					$("#modal img.load").show();
+					$("#modal").show("fast");
+					loadModal();
+					return false;
+				});
+				// note: モーダル閉じるボタンクリック
+				$("#modal .close").click( function() {
+					isCancel = true;
+					$("#modal").hide("fast");
+					return false;
+				});
+				// note: モーダルドラッグ＆ドロップ
+				$("#ajax_form").on("dragenter", function(e) {
+					e.stopPropagation();
+					e.preventDefault();
+					$(this).css("border", "1px solid rgba(61, 196, 150, 1)");
+				});
+				$("#ajax_form").on("dragover", function(e) {
+					e.stopPropagation();
+					e.preventDefault();
+				});
+				$("#ajax_form").on("drop", function(e) {
+					$(this).css("border", "none");
+					e.preventDefault();
+					isCancel = false;
+
+					var files = e.originalEvent.dataTransfer.files;
+					for (var n = 0; n < files.length; n++) {
+						if (isCancel) break;
+
+						var form = new FormData();
+						form.append("file", files[n]);
+						$("#modal .docbottom .left").html("Uploading... " + files[n].name + " " + files[n].size);
+						$("#modal img.load").show();
+						uploadFile(form);
+					}
+				});
+				// note: モーダルXボタンクリック
+				$("#ajax_form").on("click", "button", function(e) {
+					var name = $(this).parent().data("name");
+					if (!confirm(name + "を削除しますか？")) return;
+
+					$("#modal img.load").show();
+					removeFile(name);
+				});
+				// note: モーダル画像クリック
+				$("#ajax_form").on("click", "img", function(e) {
+					var name = $(this).parent().data("name");
+					$("#uri_image").val("image/c_<?= $_GET["category"] ?>/" + name);
+					isChange = true;
+
+					$("#modal").hide("fast");
+					preview();
+				});
+				// note: エディター
+				$("#editor").css("height", $(window).height() - 156);
+				$("#editor").focusin(function() { 
+					var header = $("header").height() + 1;
+					var node = $("div.content > article:first");
+					var target = $("#editor").parent().parent();
+					$("div.content").animate({ scrollTop: target.offset().top - node.offset().top + 20 });
+				});
+				editor = ace.edit("editor");
+				editor.setTheme("ace/theme/clouds");
+				editor.setFontSize(14);
+				editor.setShowInvisibles(true);
+				editor.getSession().setMode("ace/mode/html");
+				editor.getSession().setUseWrapMode(true);
+				editor.getSession().setTabSize(2);
+				editor.renderer.setShowGutter(false);
+				editor.setOption("showPrintMargin", false);
+				editor.$blockScrolling = Infinity;
+				// note: バインダー
+				editor.setValue($('textarea[name="text1"]').text(), -1);
+			});
+		</script>
+		<div class="content">
+			<article>
+				<?= ($page->errors["message"]) ? "<p>{$page->errors["message"]}</p>" : "" ?>
+			</article>
+			<article class="clearfix">
+				<h2><?= Lib\Fixed::category()[$_GET["category"]] ?> 編集</h2>
+			</article>
+			<div id="preview"></div>
+			<form method="post">
+				<div class="detail clearfix">
+					<dl>
+						<dt>イメージURL</dt>
+						<dd>
+							<input type="text" id="uri_image" name="uri_image" value="<?= $page->values["uri_image"] ?>" style="float: left">
+							<button id="btn_image">選択</button>
+							<?= ($page->errors["uri_image"]) ? "<span>{$page->errors["uri_image"]}</span>" : "" ?>
+						</dd>
+					</dl>
+					<dl>
+						<dt>タイトル</dt>
+						<dd>
+							<input type="text" name="title" value="<?= $page->values["title"] ?>">
+							<?= ($page->errors["title"]) ? "<span>{$page->errors["title"]}</span>" : "" ?>
+						</dd>
+					</dl>
+					<dl>
+						<dt>タグ（カンマ区切り）</dt>
+						<dd>
+							<input type="text" name="tag" value="<?= $page->values["tag"] ?>">
+						</dd>
+					</dl>
+					<dl>
+						<dt>日付</dt>
+						<dd>
+							<select id="year"><?= Lib\Tag::getYearOption(10, 2, $page->values["tm_write"]) ?></select> 年  
+							<select id="month"><?= Lib\Tag::getMonthOption($page->values["tm_write"]) ?></select> 月  
+							<select id="day"><?= Lib\Tag::getDayOption($page->values["tm_write"]) ?></select> 日
+							<?= ($page->errors["tm_write"]) ? "<span>{$page->errors["tm_write"]}</span>" : "" ?>
+						</dd>
+					</dl>
+					<dl class="textarea">
+						<dt>コンテンツ</dt>
+						<dd>
+							<a class="edit_table">テーブル編集</a>
+							<div id="editor"></div>
+							<textarea name="text1" class="content" style= "display: none;" data-field="t_item.text1" data-rowid="<?= $page->values["ROWID"] ?>"><?= $page->values["text1"] ?></textarea>
+							<?php if ($page->values["ROWID"]) include("inc/support_editor.inc"); ?>
+						</dd>
+					</dl>
+					<dl>
+						<dt>コメント</dt>
+						<dd>
+							<textarea name="text2" data-field="t_item.text2"><?= $page->values["text2"] ?></textarea>
+						</dd>
+					</dl>
+					<dl>
+						<dt>リンク先</dt>
+						<dd>
+							<input type="text" name="uri_link" value="<?= $page->values["uri_link"] ?>">
+						</dd>
+					</dl>
+					<dl>
+						<dt>公開設定</dt>
+						<dd>
+							<?= Lib\Tag::getRadio("is_open", array(1 => "公開", 0 => "非公開"), $page->values["is_open"]) ?>
+						</dd>
+					</dl>
+				</div>
+				<div class="clearfix">
+					<div class="left">
+						<button id="btn_back">戻る</button>
+						<button id="btn_save">保存</button>
+					</div>
+					<div class="right">
+						<button id="btn_delete">削除</button>
+					</div>
+					<input type="hidden" id="action" name="action" >
+					<input type="hidden" id="ROWID" name="ROWID" value="<?= $page->values["ROWID"] ?>">
+					<input type="hidden" id="tm_write" name="tm_write">
+				</div>
+			</form>
+		</div><!-- #content -->
+
+		<div id="modal" class="modal">
+			<img src="image/common/load.gif" class="load">
+			<div id="ajax_form" class="photo"></div>
+			<form method="post">
+				<div class="clearfix docbottom">
+					<div class="left"></div>
+					<div class="right"><button class="close">閉じる</button></div>
+				</div>
+			</form>
+		</div><!-- #modal -->
+
+		<script>
+		$(function() {
+			// note: テーブル編集クリック
+			$("a.edit_table").on("click", function() {
+				$("textarea[name=text1]").val(editor.getValue());
+				$("#modal_table > div.table").html($("textarea[name=text1]").val());
+				$("#modal_table > div.table td").each(function() {
+					var text = $(this).html();
+					$(this).html("<input type='text' value='" + text + "'>");
+				});
+				if ($("#modal_table > div.table tbody tr").length == 0) $("#modal_table > div.add").hide();
+				$("#modal_table").show("fast");
+				return false;
+			});
+			// note: 行追加クリック
+			$("#modal_table > div.add a").on("click", function() {
+				var tr = $("#modal_table > div.table table:nth-of-type(1) tbody tr:last-child").clone();
+				$("#modal_table > div.table table:nth-of-type(1) tbody").append(tr);
+			});
+			// note: Enter
+			$("#modal_table > div.table").on("keydown", "tbody input", function(e) {
+				if (e.keyCode != 13 && e.keyCode < 37 && e.keyCode > 40) return;
+				var index = $(this).parent().index();
+				if (e.altKey && e.keyCode == 13) $(this).closest("tr").after($(this).closest("tr").clone());
+				else if ((!e.shiftKey && e.keyCode == 13) || (e.ctrlKey && e.keyCode == 40)) { $("input", $(this).closest("tr").next().find("td").eq(index)).focus().select(); return false; }
+				else if ((e.shiftKey && e.keyCode) == 13 || e.ctrlKey && e.keyCode == 38) { $("input", $(this).closest("tr").prev().find("td").eq(index)).focus().select(); return false; }
+				else if (e.ctrlKey && e.keyCode == 37) { $("input", $(this).closest("tr").find("td").eq(index - 1)).focus().select(); return false; }
+				else if (e.ctrlKey && e.keyCode == 39) { $("input", $(this).closest("tr").find("td").eq(index + 1)).focus().select(); return false; }
+			});
+			// note: 取消クリック
+			$("#modal_table .close").on("click", function() {
+				$("#modal_table").hide("fast");
+				return false;
+			});
+			// note: OKクリック
+			$("#modal_table .ok").on("click", function() {
+				$("#modal_table > div.table td input").each(function() {
+					var text = $(this).val();
+					$(this).parent().html(text);
+				});
+				$("textarea[name=text1]").val($("#modal_table > div.table").html());
+				editor.setValue($("textarea[name=text1]").val(), -1);
+				$("#modal_table").hide("fast");
+				return false;
+			});
+		});
+		</script>
+		<div id="modal_table" class="modal">
+			<div class="add clearfix">
+				<p>Alt + Enter 行追加 Enter 次行 Shift + Enter 前行 Ctrl + 矢印 セル移動</p>
+				<a>行追加</a>
+			</div>
+			<div class="table"></div>
+			<form method="post">
+				<div class="clearfix docbottom">
+					<div class="left"><button class="close">取消</button></div>
+					<div class="right"><button class="ok">OK</button></div>
+				</div>
+			</form>
+		</div><!-- #modal -->
+
+	</div><!-- #wrap -->
+</section>
+<?php include("inc/footer.inc"); ?>

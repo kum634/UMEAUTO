@@ -1,0 +1,225 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * イベント編集ページクラス
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2020 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.200419
+*/
+namespace Lib;
+
+require_once("Conf.inc");
+require_once("Common/Page.class");
+require_once("Common/DAC.class");
+
+class Page_Event_edit extends Page {
+	/**
+	 * @property string $page_name 編集中のページ名
+	 * @property string $user_id 編集ユーザーID
+	 * @property string $user_id 編集ユーザー名
+	 * @property int $is_locked ロック状態
+	 */
+	public $title;
+	public $page_name;
+	public $user_id;
+	public $user_name;
+	public $is_locked;
+	/**
+	 * 
+	 */
+	public function default() {
+		Lib::authPage($this);
+
+		// note: ページ情報を獲得
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setColumn("p.page_name, p.user_id, p.is_locked");
+		$dac->setColumn("u.user_name");
+		$dac->setOption("p.ROWID = [0]", $_GET["page"]);
+		if (!$dac->selectRows("t_page As p Left Join t_user As u On (p.user_id = u.user_id)", $rows)) {
+			$_SESSION[DOMAIN]["Lib.page.event"]["errors"]["form"] = $dac->message;
+			$this->location("event.html?page={$_GET["page"]}");
+		}
+		$this->page_name = $rows[0]["page_name"];
+		$this->user_id = $rows[0]["user_id"];
+		$this->user_name = $rows[0]["user_name"];
+		$this->is_locked = $rows[0]["is_locked"];
+		$this->title = "{$rows[0]["page_name"]}";
+
+		// note: ポストバック値がある場合はリターン
+		if ($this->values && $this->values["ROWID"] == $_GET["ROWID"]) return true;
+
+		$sampleSource = "/**\n";
+		$sampleSource.= " * データベース接続サンプルコード\n";
+		$sampleSource.= " * このサンプルコードを実行する前に、useディレクティブにDACを選択しメンバ変数にrowsを追加してください。\n";
+		$sampleSource.= " * \n";
+		$sampleSource.= " * t_personテーブルからデータ行を獲得しメンバ変数rowsに代入します。\n";
+		$sampleSource.= " * データベース問い合わせ時にエラーが発生した場合にはページセッションにエラーメッセージを保存します。\n";
+		$sampleSource.= " */\n";
+		$sampleSource.= "//\$dac = new DAC(Lib::connection(), \"mysql\", true);\n";
+		$sampleSource.= "//\$dac->setColumn(\"name, age\");\n";
+		$sampleSource.= "//\$dac->setOption(\"age >= [0]\", \$_POST[\"age\"]);\n";
+		$sampleSource.= "//if (!\$dac->selectRows(\"t_person\", \$rows)) {\n";
+		$sampleSource.= "//  \$_SESSION[DOMAIN][\$this->sessionKey][\"errors\"][\"message\"] = \$dac->message;\n";
+		$sampleSource.= "//  return false;\n";
+		$sampleSource.= "//}\n";
+		$sampleSource.= "//\$this->rows = \$rows;\n";
+		$sampleSource.= "//return true;\n";
+
+		// note: 追加の場合はリターン
+		if (!$_GET["ROWID"]) {
+			$this->values["content"] = $sampleSource;
+			$this->title.= " New event - ";
+			return true;
+		}
+		
+		// note: イベント設定を獲得
+		$dac->clear();
+		$dac->setColumn("ROWID");
+		$dac->setColumn("name");
+		$dac->setColumn("callback");
+		$dac->setColumn("move_to");
+		$dac->setColumn("content");
+		$dac->setColumn("visible");
+		$dac->setColumn("comment");
+		$dac->setOption("ROWID = [0]", $_GET["ROWID"]);
+		if (!$dac->selectRows("t_event", $rows)) {
+			$_SESSION[DOMAIN]["Lib.page.event"]["errors"]["form"] = $dac->message;
+			$this->location("event.html?page={$_GET["page"]}");
+		}
+		if (!$rows[0]) {
+			$_SESSION[DOMAIN]["Lib.page.event"]["errors"]["form"] = "選択されたイベントが見つかりません。";
+			$this->location("event.html?page={$_GET["page"]}");
+		}
+		$this->values = Filter::getEntities($rows[0]);
+		if (!$this->values["content"]) $this->values["content"] = $sampleSource;
+		$this->values["is_event"] = $_GET["event"];
+		$this->title = ($rows[0]["name"] == "default") ? "default() - " : " {$rows[0]["callback"]}() - ";
+		return true;
+	}
+	/**
+	 * ページセッションを破棄しリストへ戻る
+	 */
+	public function back() {
+		Lib::authPage($this);
+		unset($_SESSION[DOMAIN][$this->sessionKey]);
+		return true;
+	}
+	/**
+	 * イベント情報を保存する
+	 * modified: 170126 イベントの種類に応じて挿入データを変更
+	 */
+	public function save() {		
+		Lib::authPage($this);
+		if ($_GET["event"]) {
+			if ($_POST["is_postevent"] && !$_POST["name"]) $this->errors["name"] = "入力してください。";
+			if ($_POST["is_postevent"] && !$_POST["callback"]) $this->errors["callback"] = "入力してください。";
+		} else {
+			if (!$_POST["callback"]) $this->errors["callback"] = "入力してください。";
+		}
+		
+		if ($this->errors) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"] = $this->errors;
+			return false;
+		}
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setData("t_page_ROWID", $_GET["page"]);
+		if ($_GET["event"]) {
+			if (!$_POST["is_postevent"]) {
+				// note: ロードイベントは固定値を挿入
+				$dac->setData("name", "default");
+				$dac->setData("value", "");
+				$dac->setData("callback", "default");
+			} else {
+				// note: ポストイベントはvalueとcallbackに同一の値を挿入
+				$dac->setData("name", $_POST["name"]);
+				$dac->setData("value", $_POST["callback"]);
+				$dac->setData("callback", $_POST["callback"]);
+			}
+		} else {
+			// note: ユーザーファンクション
+			$dac->setData("callback", $_POST["callback"]);
+		}
+		$dac->setData("move_to", $_POST["move_to"]);
+		$dac->setData("use_session", "1");
+		$dac->setData("content", $_POST["content"]);
+		$dac->setData("visible", $_POST["visible"]);
+		$dac->setData("comment", $_POST["comment"]);
+		$dac->setData("is_event", $_GET["event"]);
+
+		if (!$_POST["ROWID"]) {
+			if (!$ROWID = $dac->insertData("t_event", true, true)) {
+				$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = $dac->message;
+				return false;
+			}
+		} else {
+			$dac->setOption("ROWID = [0]", $_POST["ROWID"]);
+			if (!$dac->updateData("t_event", 1)) {
+				$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = $dac->message;
+				return false;
+			}
+			$ROWID = $_POST["ROWID"];
+		}
+		// note: 保存後のページ情報を獲得
+		$dac->clear();
+		$dac->setColumn("*");
+		$dac->setOption("ROWID = '[0]'", $_GET["page"]);
+		if (!$dac->selectRows("t_page", $rows)) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = $dac->message;
+			return false;
+		}
+		// note: ルール及びイベント設定を獲得
+		$dac->clear();
+		$dac->setColumn("*");
+		$dac->setOption("t_page_ROWID = [0]", $_GET["page"]);
+		if (!$dac->selectRows("t_rule", $rowsRule)) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = $dac->message;
+			return false;
+		}
+		if (!$dac->selectRows("t_event", $rowsEvent)) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = $dac->message;
+			return false;
+		}
+		// note: ページクラスファイル書き出し
+		$template = file_get_contents("tmp/pageclass.tmp");
+		$source = Filter::makePageClass($rows[0], $rowsRule, $rowsEvent, $template);
+		if (file_put_contents("../{$rows[0]["url"]}.class", $source) === false) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = "ファイルの書き出しに失敗しました。";
+			return false;
+		}
+		unset($_SESSION[DOMAIN][$this->sessionKey]);
+		$this->location("event_edit.html?ROWID={$ROWID}&page={$_GET["page"]}&event={$_GET["event"]}");
+	}
+	/**
+	 * イベント情報を消去する
+	 */
+	public function delete() {
+		Lib::authPage($this);
+		if (!$_POST["ROWID"]) return false;
+
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setOption("ROWID = [0]", $_POST["ROWID"]);
+		if(!$dac->deleteRows("t_event", 1)) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = $dac->message;
+			return false;
+		}
+		unset($_SESSION[DOMAIN][$this->sessionKey]);
+		return true;
+	}
+}
+$form["ROWID"] = new Rule(9, "[^0-9NEW]", "a", null, false, true);
+$form["is_postevent"] = new Rule(1, "[^01]", null, null, false, false);
+$form["name"] = new Rule(50, "[^0-9a-z]", "a", null, false, true);
+$form["callback"] = new Rule(50, "[^0-9a-zA-Z]", "a", null, false, true);
+$form["move_to"] = new Rule(100, "[^0-9a-z-_./]", "a", null, false, true);
+$form["content"] = new Rule(50000, "", null, null, false, true);
+$form["visible"] = new Rule(1, "[^01]", "a", "0", false, true);
+$form["comment"] = new Rule(200, "", null, null, false, true);
+
+$page = new Page_Event_edit(__DIR__, $form, "Lib.page.event_edit");
+$page->setEvent("default", null, array($page, "default"), "", false);
+$page->setEvent("action", "back", array($page, "back"), "event.html?page={$_GET["page"]}", false);
+$page->setEvent("action", "save", array($page, "save"), "", true);
+$page->setEvent("action", "delete", array($page, "delete"), "event.html?page={$_GET["page"]}", false);
+$page->load();

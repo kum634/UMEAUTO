@@ -1,0 +1,273 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * メールクラス
+ *
+ * プロパティーアクセスは__get()__set()マジックメソッドによって制御される。
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2020 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.200729
+ */
+namespace Lib;
+
+require_once("Pear/Mail.php");
+require_once("Mail/mime.php");
+
+class MailClass {
+	/**
+	 * @property-read string $driver コンストラクタで実行する送信方式が設定される
+	 * @property string $encode コンストラクタでメール本文のエンコードが設定される
+	 * @property string $subj メール件名
+	 * @property string $body メール本文
+	 * @property string $from 送信元アドレス
+	 * @property string $reply 返信先アドレス
+	 * @property array $attach 添付ファイル配列
+	 * @property-read string $message エラーメッセージ
+	 */
+	private $driver;
+	private $encode;
+	private $subj;
+	private $body;
+	private $from;
+	private $reply;
+	private $attach;
+	private $message;
+	/**
+	 * コンストラクタ
+	 *
+	 * @param string $driver 実行する送信方式（mail | sendmail | smtp）
+	 * @param string $encode メール本文のエンコード
+	 */
+	public function __construct(string $driver  = "mail", string $encode = "SJIS") {
+		$this->driver = $driver;
+		$this->encode = $encode;
+	}
+	//
+	public function LoadTemplate($path) {
+		$lines = file($path, FILE_IGNORE_NEW_LINES);
+		foreach ($lines as $n => $line) {
+			if ($n == 0) $from = trim($line);
+			else if ($n == 1) $subj = trim($line);
+			else $body .= $line . "\n";
+		}
+		$subj = mb_convert_kana($subj, "KVS");
+
+		$this->from = $from;
+		$this->subj = $subj;
+		$this->body = $body;
+	}
+	/**
+	 * マジックメソッドゲッター
+	 *
+	 * @param string $name メンバ変数名
+	 */
+	public function __get(string $name) { return $this->$name; }
+	/**
+	 * マジックメソッドセッター
+	 *
+	 * @param string $name メンバ変数名
+	 * @param mixed $value メンバ変数値
+	 */
+	public function __set(string $name, $value) {
+		if (in_array($name, ["subj", "body", "from", "reply", "attach", "encode"])) $this->$name = $value;
+	}
+	/**
+	 * メール本文のプレースホルダを置換文字列で置き換える
+	 *
+	 * @param string $holder プレースホルダ
+	 * @param string $content 置換文字列
+	 */
+	public function SetContent(string $holder, string $content) {
+		$body = $this->body;
+		$body = str_replace($holder, $content, $body);
+		$this->body = $body;
+	}
+	/**
+	 * メール本文のプレースホルダを置換文字列で置き換える
+	 *
+	 * @param array $array プレースホルダ名と一致するキー対データの連想配列
+	 * @param array $exists $arrayの内、対象外となるキーの配列
+	 * @param array $keys $arrayの内、対象となるキーの配列
+	 */
+	public function SetContentArray(array $array, array $exists = null, array $keys = null) {
+		$body = $this->body;
+		foreach ($array as $k => $v) {
+			if (in_array($k, $exists)) continue;
+			if (!is_null($keys) && !in_array($k, $keys)) continue;
+			$body = str_replace("{#{$k}}", $v, $body);
+		}
+		$this->body = $body;
+	}
+	/**
+	 * 送信元をBCCに指定して送信先にメールを送信する
+	 *
+	 * @param string $to 送信先アドレス
+	 * @param string $from 送信元アドレス
+	 * @retrun bool 送信に成功した場合にtrueを返す
+	 */
+	public function SendBoth($to, $from = null) {
+		$from = ($from) ? $from : $this->from;
+
+		if (!$from) {
+			$this->message = "送信元が不明です。";
+			return false;
+		}
+		$array = explode("<", $from);
+		if (count($array) > 1) {
+			$name = $this->MimeEncode(
+				mb_convert_encoding(mb_convert_kana($array[0], "KV"), "ISO-2022-JP", "UTF-8"), "ISO-2022-JP");
+			$from = "{$name}<{$array[1]}";
+		}
+			
+		$header["From"] = $from;
+		$header["To"] = $to;
+		$header["Bcc"] = $from;
+		if ($this->reply) $header["Reply-To"] = $this->reply;
+		
+		$header["Subject"] = $this->MimeEncode(
+			mb_convert_encoding(mb_convert_kana($this->subj, "KV"), "ISO-2022-JP", "UTF-8"), "ISO-2022-JP");
+
+		$prms["head_charset"] = "ISO-2022-JP";
+		$prms["text_charset"] = $this->encode;
+
+		$mime = new \Mail_mime("\n");
+		$mime->setTxtBody(mb_convert_encoding($this->body, $this->encode, "UTF-8"));
+		// added: 191028
+		foreach ($this->attach as $file) $mime->addAttachment($file["name"], $file["type"]);
+		$body = $mime->get($prms);
+		$header = $mime->headers($header);
+
+		$mail = \Mail::factory($this->driver);
+		$res = $mail->send($to, $header, $body);
+
+		if (\PEAR::isError($res)) {
+			$this->message = $res->getMessage();
+			return false;
+		} else {
+			return true;
+		}
+	}
+	/**
+	 * メールを送信する
+	 *
+	 * @param string $to 送信先アドレス
+	 * @param string $from 送信元アドレス
+	 * @retrun bool 送信に成功した場合にtrueを返す
+	 */
+	public function Send($to, $from = null) {
+		$from = ($from) ? $from : $this->from;
+
+		if (!$from) {
+			$this->message = "送信元が不明です。";
+			return false;
+		}
+		$array = explode("<", $from);
+		if (count($array) > 1) {
+			$name = $this->MimeEncode(
+				mb_convert_encoding(mb_convert_kana($array[0], "KV"), "ISO-2022-JP", "UTF-8"), "ISO-2022-JP");
+			$from = "{$name}<{$array[1]}";
+		}
+		
+		$header["From"] = $from;
+		$header["To"] = $to;
+		if ($this->reply) $header["Reply-To"] = $this->reply;
+		
+		$header["Subject"] = $this->MimeEncode(
+			mb_convert_encoding(mb_convert_kana($this->subj, "KV"), "ISO-2022-JP", "UTF-8"), "ISO-2022-JP");
+
+		$prms["head_charset"] = "ISO-2022-JP";
+		$prms["text_charset"] = $this->encode;
+
+		$mime = new \Mail_mime("\n");
+		$mime->setTxtBody(mb_convert_encoding($this->body, $this->encode, "UTF-8"));
+		// added: 191028
+		foreach ($this->attach as $file) $mime->addAttachment($file["name"], $file["type"]);
+		$body = $mime->get($prms);
+		$header = $mime->headers($header);
+
+		$mail = \Mail::factory($this->driver);
+		$res = $mail->send($to, $header, $body);
+
+		if (\PEAR::isError($res)) {
+			$this->message = $res->getMessage();
+			return false;
+		} else {
+			return true;
+		}
+	}
+	/**
+	 * HTMLメールを送信する
+	 *
+	 * @param string $to 送信先アドレス
+	 * @param string $from 送信元アドレス
+	 * @retrun bool 送信に成功した場合にtrueを返す
+	 */
+	public function SendHtml($to, $from = null) {
+		$from = ($from) ? $from : $this->from;
+
+		if (!$from) {
+			$this->message = "送信元が不明です。";
+			return false;
+		}
+		$array = explode("<", $from);
+		if (count($array) > 1) {
+			$name = $this->MimeEncode(
+				mb_convert_encoding(mb_convert_kana($array[0], "KV"), "ISO-2022-JP", "UTF-8"), "ISO-2022-JP");
+			$from = "{$name}<{$array[1]}";
+		}
+		
+		$header["From"] = $from;
+		$header["To"] = $to;
+		if ($this->reply) $header["Reply-To"] = $this->reply;
+		
+		$header["Subject"] = $this->MimeEncode(
+			mb_convert_encoding(mb_convert_kana($this->subj, "KV"), "ISO-2022-JP", "UTF-8"), "ISO-2022-JP");
+
+		$prms["head_charset"] = "ISO-2022-JP";
+		$prms["html_charset"] = $this->encode;
+
+		$mime = new \Mail_mime("\n");
+		$mime->setHTMLBody(mb_convert_encoding($this->body, $this->encode, "UTF-8"));
+		// added: 191028
+		foreach ($this->attach as $file) $mime->addAttachment($file["name"], $file["type"]);
+		$body = $mime->get($prms);
+		$header = $mime->headers($header);
+
+		$mail = \Mail::factory($this->driver);
+		$res = $mail->send($to, $header, $body);
+
+		if (\PEAR::isError($res)) {
+			$this->message = $res->getMessage();
+			return false;
+		} else {
+			return true;
+		}
+	}
+	/**
+	 * 内部エンコードを一時的に変更してMIMEヘッダを正しくエンコードする
+	 *
+	 * @param string $subj メール件名
+	 * @param string $encode エンコード
+	 * @return string エンコード結果のASCII文字列
+	 */
+	private function MimeEncode(string $subj, string $encoding) : string {
+		$org = mb_internal_encoding();
+		mb_internal_encoding($encoding);
+
+		$s = mb_encode_mimeheader($subj, $encoding);
+		mb_internal_encoding($org);
+		return $s;
+	}
+	/**
+	 * メール引用文に引用符を付加して返す
+	 *
+	 * @param string $text メール引用文
+	 * @return string メール引用符付き文字列
+	 */
+	public static function getQuoteText(string $text) : string {
+		foreach (explode("\n", $text) as $line) $lines[] = "> {$line}";
+		return implode("\n", $lines);
+	}
+}

@@ -1,0 +1,741 @@
+<?php require_once("request.html.class"); ?>
+<!doctype html><html>
+<head>
+  <meta charset="utf-8">
+  <title>整備依頼申し込みフォーム</title>
+  <meta name="format-detection" content="telephone=no,noindex,nofollow,noarchive">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no">
+  <link href="<?= $page->path ?>css/common.css" rel="stylesheet" type="text/css">
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.0.13/css/all.css" integrity="sha384-DNOHZ68U8hZfKXOrtjWvjxusGo9WQnrNx2sqG0tfsghAvtVlRW3tvkXWZh58N9jp" crossorigin="anonymous">
+  <link href="js/bxslider/jquery.bxslider.css" rel="stylesheet" type="text/css">
+  <script type="text/javascript" src="js/jquery-3.3.1.min.js"></script> 
+  <script type="text/javascript" src="js/bxslider/jquery.bxslider.min.js"></script>
+  <script type="text/javascript" src="js/jquery-validation-1.11.1/dist/jquery.validate.js"></script>
+  <script type="text/javascript" src="js/jquery-validation-1.11.1/localization/messages_ja.js"></script>
+  <script type="text/javascript">
+  $(function(){
+    $('.bxslider').bxSlider({
+      auto: true,
+      pause: 4000,
+      speed: 1000,
+      pager: false,
+      controls: false,
+      captions: false,
+      randomStart: true,
+      infiniteLoop: true,
+      responsive: true
+    });
+  });
+  </script>
+</head>
+<body>
+  <div class="wrapper row1">
+    <header id="main_header">
+      <div class="view-pc container clearfix">
+        <div class="header_logo">
+          <!--<h1>淡路島で出張整備なら</h1>-->
+          <!--<p class="top-logo"><a href="index.html">ウメオート</a></p>-->
+          <p>淡路島で出張整備なら</p>
+          <h1 class="top-logo"><a href="index.html">ウメオート</a></h1>
+        </div>
+        <div class="pr_space">
+          <p class="model-muryo">整備モデル募集中!<br>
+            初めてご利用の方なら工賃無料</p>
+          <p><a class="header-seibi-form" href="request.html">整備依頼はこちら　<i class="fas fa-mouse-pointer"></i></a></p>
+        </div>
+      </div>
+      <!-- スマホ　↓　～767px-->
+      <div class="container view-st inlinestart"> <i id="open_menu" class="fas fa-bars"></i>
+        <nav id="menu"> <i id="close_menu" class="fas fa-times"></i>
+          <ul>
+            <li><a href="shop.html">会社案内 </a></li>
+            <li><a href="service.html">サービスメニュー </a></li>
+            <li><a href="process.html">出張整備の流れ </a></li>
+            <li><a href="qa.html">出張整備Q&amp;A </a></li>
+            <li><a href="sell.html">中古部品販売</a></li>
+            <li><a href="contact.html">お問い合わせ </a></li>
+          </ul>
+        </nav>
+        <!--<h1 class="catchcopy">淡路島で出張整備なら</h1>-->
+        <!--<p class="top-logo"><a href="index.html">ウメオート</a></p>-->
+        <p class="catchcopy">淡路島で出張整備なら</p>
+        <h1 class="top-logo"><a href="index.html">ウメオート</a></h1>
+      </div>
+      <!-- スマホ　↑　～767px--> 
+      <div class="loader">Loading...</div>
+    </header>
+  </div>
+  <div class="wrapper row2 view-pc container">
+    <nav id="g_navi" class="view-pc">
+      <ul class="view-pc">
+        <li><a href="shop.html">会社案内 </a></li>
+        <li><a href="service.html">サービスメニュー </a></li>
+        <li><a href="process.html">出張整備の流れ </a></li>
+        <li><a href="qa.html">出張整備Q&amp;A </a></li>
+        <li><a href="sell.html">中古部品販売</a></li>
+        <li><a href="contact.html">お問い合わせ </a></li>
+      </ul>
+    </nav>
+  </div>
+  <div class="wrapper_visual">
+    <div class="wrapper row3">
+      <div class="mainvisual">
+        <ul class="bxslider" >
+          <li><img src="images/mv1.jpg"></li>
+          <li><img src="images/mv2.jpg"></li>
+          <li><img src="images/mv3.jpg"></li>
+          <li><img src="images/mv4.jpg"></li>
+          <li><img src="images/mv5.jpg"></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="wrapper row4">
+    <main class="clearfix mb40">
+      <div class="container">
+        <nav class="wrap crumbs">
+          <ul>
+            <?php if(!strpos($_SERVER['REQUEST_URI'],"index.html")) { ?>
+            <li><a href="index.html" title="brise">ウメオート</a></li>
+            <?= $page->crumbs ?>
+            <?php } ?>
+          </ul>
+        </nav>
+        <article id="main_contents">
+<style>
+@charset "utf-8";
+/* CSS Document */
+section:nth-of-type(3) tr:nth-of-type(5) label,
+section:nth-of-type(1) tr:nth-of-type(3) label {
+  display: block;
+}
+section:nth-of-type(3) tr:nth-of-type(4) label input,
+section:nth-of-type(1) tr:nth-of-type(3) label input {
+  margin: 0 5px 10px 0;
+} 
+label.error {
+	color: #FC0206;
+	padding-left: 10px;
+}
+.submit_file_space {
+  text-align: left !important;
+  padding-left:0px !important;
+}  
+.submit_file {
+  color: white;  
+  background-color: #D62854;
+  padding: 6px;
+  border-radius: 12px;
+}
+.drop {
+  border: 1px dotted;
+  min-height: 70px;
+} 
+.drop label {
+  content: '\f556';
+  font-family: "Font Awesome 5 Free";
+}
+.drop label i {
+  color: #fff;
+  margin: 0 auto;
+  display: block;
+  text-align: center;
+  background-color: #D62854;
+  border-radius: 50%;
+  padding: 2px;
+}
+.drop div {
+  min-height: 70px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.drop div p {
+  margin: 10px 5px;
+  text-align: center;
+}
+.drop ul {
+  width: 70%;
+  margin: 0 auto;
+  padding: 0;
+}
+.drop ul li {
+  list-style-type: none;
+  display: flex;
+  margin: 20px 0;
+}
+.drop ul li img {
+  display: block;
+  width: 70%;
+  margin: 0 auto;
+}
+@-webkit-keyframes load8 {
+  0% {
+    -webkit-transform: rotate(0deg);
+    transform: rotate(0deg);
+  }
+  100% {
+    -webkit-transform: rotate(360deg);
+    transform: rotate(360deg);
+  }
+}
+@keyframes load8 {
+  0% {
+    -webkit-transform: rotate(0deg);
+    transform: rotate(0deg);
+  }
+  100% {
+    -webkit-transform: rotate(360deg);
+    transform: rotate(360deg);
+  }
+}
+@media (min-width : 768px ) {
+  section {
+    margin-top: 40px;
+  }
+  div.drop label i {
+    width: 20px;
+    height: 20px;
+    font-size: 1.5rem;
+  }
+  div.drop {
+    display: block !important;
+  }
+  div.smartphone {
+    display: none !important;
+  }
+}
+@media (max-width : 767px ) {
+  #menu_f {
+    display: none;
+  }
+  div.drop label i {
+    width: 15px;
+    height: 15px;
+    font-size: 1.2rem;
+  }
+  div.drop {
+    display: none !important;
+  }
+  div.smartphone ul {
+    width: 100% !important;
+  }
+  div.smartphone ul li label i {
+    width: 20px;
+    height: 20px;
+    font-size: 1.5rem;
+  }
+  div.smartphone {
+    display: table-cell !important;
+  }
+  .submit_file {
+    display: inline-block;
+  }
+}
+</style>
+<script>
+$(function() {
+  $.ajaxSetup({
+     beforeSend: function() {
+      $("div.loader").show();
+      $(".wrapper").css('opacity','0.5');
+    },
+    complete: function() {
+      $("div.loader").hide();
+      $(".wrapper").css('opacity','1');
+    },
+    error: function(xhr, status) { console.log("$.ajax error: " + status); alert(xhr.responseText); }
+  });
+
+//画像アップロード（~767px）
+  //ファイルの選択
+  $("#file_photo").change(function() {
+    var fileList = $("#file_photo")[0].files;
+    var fileCount = fileList.length;
+    var loadCompleteCount = 0;
+    var imageList = "";
+    
+    for ( var i = 0; i < fileCount; i++ ) {
+        var fileReader = new FileReader();
+        var file = fileList[i];
+        var form = new FormData();
+
+        form.append("file", file);
+        fileReader.readAsDataURL( file );
+        
+        //アップロード
+        uploadSmartphone(form);
+        function uploadSmartphone(form) {
+          form.append("action", "upload");
+          $.ajax(location.href, {
+            async: true,
+            method: "POST",
+            contentType: false,
+            processData: false,
+            data:form,
+            dataType: "json",
+            success: function(res) {
+              console.log(res);
+              $("#file_photo_list").append('<li data-name="'+ res.name +'"><label><i class="fas fa-times"></i></label><input type="hidden" name="file_photo[]" value="'+ res.photo +'"><img src="<?= $page->savePath ?>' + res.photo + '"></li>');
+            }
+          });
+        }
+    }
+  });   
+  
+  //　削除
+  $(document).on("click", "div.smartphone ul label", function() {
+		var name = $(this).parent().data("name");
+		removeSmartphone(name);
+	});
+	function removeSmartphone(name) {
+    $.post(location.href,{"action": "remove", "file_name": name}, function(res) {
+      console.log(res);
+      $('div.smartphone ul li[data-name="' + res.name + '"]').remove();
+    }, "json");
+      return false;
+  }
+
+//画像アップロード（768px~）  
+  //ドラッグ＆ドロップ
+  $("div.drop").on("dragenter", function(e) {
+    e.stopPropagation();
+    e.preventDefault();
+  });
+  $("div.drop").on("dragover", function(e) {
+    e.stopPropagation();
+    e.preventDefault();
+  });
+  $("div.drop").on("drop", function(e) {
+    $("div.drop div").hide();
+    $("div.drop ul").show();
+    e.preventDefault();
+    var files = e.originalEvent.dataTransfer.files;
+    if (files.length < 1) return;
+    for (var n = 0; n < files.length; n++) {
+    	var form = new FormData();
+    	form.append("file", files[n]);
+    	uploadDrop(form);
+    } 	
+  });
+    
+  //アップロード
+  function uploadDrop(form) {
+    form.append("action", "upload");
+    $.ajax(location.href, {
+      async: true,
+      method: "POST",
+      contentType: false,
+      processData: false,
+      data:form,
+      dataType: "json",
+      success: function(res) {
+        console.log(res);
+        $("div.drop ul").append('<li data-name="'+ res.name +'"><label><i class="fas fa-times"></i></label><input type="hidden" name="file_photo[]" value="'+ res.photo +'"><img src="<?= $page->savePath ?>' + res.photo + '"></li>');
+      }
+    });
+  }
+  
+  //　削除
+  $(document).on("click", "div.drop label", function() {
+		var name = $(this).parent().data("name");
+		removeDrop(name);
+	});
+	
+  function removeDrop(name) {
+    $.post(location.href,{"action": "remove", "file_name": name}, function(res) {
+      console.log(res);
+      $('div.drop ul li[data-name="' + res.name + '"]').remove();
+      if (!$("div.drop ul > li").length) {
+        $("div.drop div").show();
+        $("div.drop ul").hide();
+      }
+    }, "json");
+      return false;
+  }
+
+//フォームバリデーション
+  $("form").validate({
+    rules: {
+      name: {
+        required: true
+      },kana: {
+        required: true
+      },gender: {
+        required: true
+      },age: {
+        required: true
+      },tel: {
+        digits: true
+      },mail: {
+        email: true,required: true
+      },postalcode: {
+        digits: true,required: true
+      },city1: {
+        required: true
+      },city2: {
+        required: true
+      },manufacturered_name: {
+        required: true
+      },model_code: {
+        required: true
+      },manufacturered_year: {
+        required: true
+      },manufacturered_month: {
+        required: true
+      },expiration_year: {
+        required: true
+      },expiration_month: {
+        required: true
+      },expiration_day: {
+        required: true
+      },request_purpose: {
+        required: true
+      },request_details: {
+        required: true
+      },parts: {
+        required: true
+      }
+    },messages: {
+      name: {
+        required: "お名前を入力してください。"
+      },kana: {
+        required: "ふりがなを入力してください。"
+      },gender: {
+        required:"性別を選択してください。"
+      },age: {
+        required:"年齢を選択してください。"
+      },
+      tel: {
+        digits:"正しい形式で入力してください。"
+      },mail: {
+        email: "正しい形式で入力してください。", required: "メールアドレスを入力してください。"
+      },postalcode: {
+        digits:"正しい形式で入力してください。", required: "郵便番号を入力してください。"
+      },city1: {
+        required:"町域を選択してください。"
+      },city2: {
+        required: "字以降を入力してください。"
+      },manufacturered_name: {
+        required: "メーカー名を入力してください。"
+      },model_code: {
+        required: "型式を入力してください。"
+      },manufacturered_year: {
+        required:"（年）を選択してください。"
+      },manufacturered_month: {
+        required:"（月）を選択してください。"
+      },expiration_year: {
+        required: "（年）を選択してください。"
+      },expiration_month: {
+        required:"（月）を選択してください。"
+      },expiration_day: {
+        required:"（日）を選択してください。"
+      },reservation_date: {
+        required:"（希望日）を選択してください。"
+      },request_purpose: {
+        required:"依頼目的を選択してください。"
+      },request_details: {
+        required:"依頼内容の詳細を入力してください。"
+      },parts: {
+        required:"部品の有無を選択してください。"
+      }
+    }
+  });
+
+  $("form button#confirm").on("click", function() {
+    if (!$("form").valid()) return false;
+    $.post(location.href, $("form").serialize(), function(res) {
+      console.log(res);
+      if (res.status =="SUCCEED") location.href = "request_confirm.html";
+    }, "json");
+    return false;
+  });
+});
+</script>
+<!---->
+          <div class="page_title">
+            <h2>整備依頼申し込みフォーム</h2>
+          </div>
+          <form enctype="multipart/form-data">
+            <section>
+              <table width="100%" border="0">
+                <tbody>
+                  <h3>お客様情報</h3>
+                  <tr>
+                    <td width="40%">氏名 <strong>※</strong></td>
+                    <td width="60%">
+                      <br />
+                      <input name="name" type="text" required="required" id="name" title="お名前を入力してください" value="<?= $page->form["name"] ?>">
+                      <br />
+                      <label for="name" class="error"></label>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>ふりがな <strong>※</strong></td>
+                    <td>
+                      <br />
+                      <input name="kana" type="text" required="required" id="kana" title="ふりがなを入力してください" value="<?= $page->form["kana"] ?>">
+                      <br />
+                      <label for="kana" class="error"></label>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>性別 <strong>※</strong></td>
+                    <td>
+                      <br />
+                      <br />
+                      <?= Lib\Tag::getRadio("gender", [0 => "男" , 1 => "女"], $page->form["gender"]) ?>
+                      <br />
+                      <label for="gender" class="error"></label>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>年齢 <strong>※</strong></td>
+                    <td>
+                      <select name="age" required id="age">
+                        <option value="">選択してください</option>
+                        <?= Lib\Tag::getOption($page->select["age"], $page->form["age"]) ?>
+                      </select>
+                      <br />
+                      <label for="age" class="error"></label>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>電話番号</td>
+                    <td>
+                      <br />
+                      <input name="tel" type="tel" id="tel" title="電話番号を入力してください" value="<?= $page->form["tel"] ?>">
+                      <br />
+                      <label for="tel" class="error"></label>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>メールアドレス <strong>※</strong></td>
+                    <td><br />
+                      <input name="mail" type="email" id="mail" title="メールアドレスを入力してください" value="<?= $page->form["mail"] ?>">
+                      <br />
+                      <label for="mail" class="error"></label>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>郵便番号 <strong>※</strong></td>
+                    <td>
+                      <br />
+                      <input name="postalcode" type="text" id="postalcode" title="郵便番号を入力してください" value="<?= $page->form["postalcode"] ?>">
+                      <br />
+                      <label for="postalcode" class="error"></label>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>現住所(市区町村) <strong>※</strong></td>
+                    <td>
+                      <br />
+                      <select name="city" required id="city">
+                        <option value="">選択してください</option>
+                        <?= Lib\Tag::getOption($page->select["city"], $page->form["city"]) ?>
+                      </select>
+                      <br />
+                      <label for="city" class="error"></label>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>現住所（字以降）<strong>※</strong></td>
+                    <td><br />
+                      <input name="addr" type="text" required="required" id="addr" value="<?= $page->form["addr"] ?>">
+                      <br />
+                      <label for="addr" class="error"></label>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </section>
+            <section>
+              <table width="100%" border="0">
+                <tbody>
+                  <h3>車種情報</h3>
+                  <tr>
+                    <td width="40%">メーカー名 <strong>※</strong></td>
+                    <td width="60%"><br />
+                      <input name="manufacturer_name" type="text" required="required" id="manufacturer_name" placeholder="例）トヨタ" title="お車のメーカー名を入力してください" value="<?= $page->form["manufacturer_name"] ?>">
+                      <br />
+                      <label for="manufacturer_name" class="error"></label>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>車種名 <strong>※</strong></td>
+                    <td><br />
+                      <input name="model_name" type="text" required="required" id="model_name" placeholder="例）プリウス" title="車種名を入力してください" value="<?= $page->form["model_name"] ?>">
+                      <br />
+                      <label for="model_name" class="error"></label>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>型式 <strong>※</strong></td>
+                    <td><br />
+                      <input name="model_code" type="text" required="required" id="model_code" title="型式名を入力してください" placeholder="例）DAA-ZVW51" value="<?= $page->form["model_code"] ?>">
+                      <br />
+                      <label for="model_code" class="error"></label>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>製造年月 <strong>※</strong></td>
+                    <td><br />
+                      <select name="manufacturered_year" required id="manufacturered_year">
+                        <option value="">-</option>
+                        <?= Lib\Tag::getOption($page->select["manufacturered_year"], $page->form["manufacturered_year"]) ?>
+                      </select>
+                      年
+                      <select name="manufacturered_month" required id="manufacturered_month">
+                        <option value="">-</option>
+                        <?= Lib\Tag::getOption($page->select["month"], $page->form["month"]) ?>
+                      </select>
+                      月 <br />
+                      <label for="manufacturered_year" class="error"></label>
+                      <label for="manufacturered_month" class="error"></label>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>車検証の有効期限 <strong>※</strong></td>
+                    <td><br />
+                      <select name="expiration_year" required id="expiration_year">
+                        <option value="">-</option>
+                        <?= Lib\Tag::getOption($page->select["expiration_year"], $page->form["expiration_year"]) ?>
+                      </select>
+                      年
+                      <select name="expiration_month" required id="expiration_month">
+                        <option value="">-</option>
+                        <?= Lib\Tag::getOption($page->select["month"], $page->form["expiration_month"]) ?>
+                      </select>
+                      月
+                      <select name="expiration_day" required id="expiration_day">
+                        <option value="">-</option>
+                        <?= Lib\Tag::getOption($page->select["day"], $page->form["expiration_day"]) ?>
+                      </select>
+                      日<br />
+                      <label for="expiration_year" class="error"></label>
+                      <label for="expiration_month" class="error"></label>
+                      <label for="expiration_day" class="error"></label>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </section>
+            <section>
+              <table width="100%" border="0">
+                <tbody>
+                  <h3>依頼内容</h3>
+                  <tr>
+                    <td width="40%">希望日 <strong>※</strong></td>
+                    <td><br />
+                      <select name="reservation_date" required id="reservation_date">
+                        <option value="">選択してください</option>
+                        <?= Lib\Tag::getOption((array)$page->select["reservation_date"], $page->form["reservation_date"]) ?>
+                      </select>
+                      <br />
+                      <label for="reservation_date" class="error"></label>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td width="40%">依頼目的 <strong>※</strong></td>
+                    <td width="60%"><br />
+                      <select name="request_purpose" id="request_purpose">
+                        <option value="">選択してください</option>
+                        <?= Lib\Tag::getOption($page->select["request_purpose"], $page->form["request_purpose"]) ?>
+                      </select>
+                      <br />
+                      <label for="request_purpose" class="error"></label>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>依頼内容の詳細 <strong>※</strong></td>
+                    <td><br />
+                      <textarea name="request_details" rows="5" id="request_details"><?= $page->form["request_details"] ?></textarea>
+                      <br />
+                      <label for="request_details" class="error"></label>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>お手元に詳細写真があれば、<br>
+                      お送りいただければ幸いです。<br>
+                      <strong>(複数の画像ファイルを選択可)</strong>
+                    </td>
+                    <td class="pc submit_file_space drop">
+                      <div class="drop">
+                        <?php if ($page->file_photo) { ?>
+                        <div style="display :none">
+                          <p>このスペースに画像ファイルをドラッグ＆ドロップしてください。</p>                          
+                        </div>
+                        <?= $page->file_photo ?>
+                        <?php } else { ?>                        
+                        <div>
+                          <p>このスペースに画像ファイルをドラッグ＆ドロップしてください。</p>                          
+                        </div>
+                        <ul style="display :none"></ul>
+                        <?php } ?>                        
+                        <!--<input type="hidden" name="action" value="remove">-->
+                      </div>
+                      <div class="smartphone">
+                        <label class="submit_file" for="file_photo"> ＋写真を選択
+                          <input style="display:none;" id="file_photo" name="file_photo[]" type="file" onchange="file_select(this);" multiple />
+                        </label>
+                        <?php if ($page->file_photo) { ?>
+                        <?= $page->file_photo ?>
+                        <?php } else { ?>  
+                        <ul id="file_photo_list" >
+                        </ul>
+                        <?php } ?>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>取り付け予定の部品は<br>
+                      お手元にありますか <strong>※</strong>
+                    </td>
+                    <td>
+                      <br />
+                      <br />
+                      <br />
+                      <p>
+                        <?= Lib\Tag::getRadio("parts", [0 => "該当しない" , 1 => "無" , 2 => "有"], $page->form["parts"]) ?>
+                        <br>
+                      </p>
+                      <br />
+                      <label for="parts" class="error"></label>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="submit">
+                <button id="confirm">確認</button>
+                <input type="hidden" name="action" value="confirm">
+              </div>
+            </section>
+          </form>
+<!-- -->
+        </article>
+      </div>
+    </main>
+  </div>
+  <div class="wrapper row5">
+    <nav id="menu_f" class="fixedform view-st"> <i id="close_menu_f" class="fas fa-times"></i>
+      <h1>整備モデル募集中!<br>
+        初めてご利用の方なら工賃無料</h1>
+      <p><a class="formbtn_fixedform" href="request.html">整備依頼はこちら　<i class="fas fa-mouse-pointer"></i></a></p>
+    </nav>
+    <footer id="main_footer">
+      <ul>
+        <li><a href="shop.html">会社案内 </a></li>
+        <li><a href="service.html">サービスメニュー </a></li>
+        <li><a href="process.html">出張整備の流れ </a></li>
+        <li><a href="qa.html">出張整備Q&amp;A </a></li>
+        <li><a href="sell.html">中古部品販売</a></li>
+        <li><a href="contact.html">お問い合わせ </a></li>
+        <li><a href="sitemap.html">サイトマップ</a></li>
+      </ul>
+      <p> Copyright (C)2020ウメオートAll Rights Reserved. </p>
+    </footer>
+  </div>
+  <script type="text/javascript" src="<?= $page->path ?>js/burger_menu.js"></script>
+  <script type="text/javascript" src="<?= $page->path ?>js/advertising.js"></script>
+</body>
+</html>

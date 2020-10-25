@@ -1,0 +1,153 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * ユーザーページクラス
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2020 Barman Soft, Inc.
+ * @license    namespace Lib; The Clear BSD License
+ * @version    Lib Framework v3.2.200419
+ */
+namespace Lib;
+
+require_once("Conf.inc");
+require_once("Common/Page.class");
+require_once("Common/DAC.class");
+
+class Page_User_Edit extends Page {
+	public $title;
+	/**
+	 * 
+	 */
+	public function default() {
+		Lib::authPage($this);
+		if (!$_SESSION[DOMAIN]["Lib.user"]["is_developer"]) {
+			$_SESSION[DOMAIN]["Lib.page.user"]["errors"]["list"] = "ユーザー情報の編集にはDeveloper権限が必要です。";
+			$this->location("user_list.html");
+		}
+		
+		if ($this->values && $this->values["ROWID"] == $_GET["ROWID"]) return true;
+		
+		if ($_GET["ROWID"] == "NEW") {
+			$this->values["ROWID"] = "NEW";
+			$this->title = "New user - ";
+			return true;
+		}
+		$dac = new DAC(Fixed::connection(), "mysql", false);
+		$dac->setColumn("ROWID");
+		$dac->setColumn("user_id");
+		$dac->setColumn("user_name");
+		$dac->setColumn("password");
+		$dac->setColumn("is_developer");
+		$dac->setOption("ROWID = '[0]'", $_GET["ROWID"]);
+		if (!$dac->selectRows("t_user", $rows)) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = $dac->message;
+			header("Location: user_list.html");
+			exit();
+		}
+		if (!$rows[0]) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["list"] = "ユーザーが存在しません。";
+			header("Location: user_list.html");
+			exit();
+		}
+		$this->values = Filter::getEntities($rows[0]);
+		$this->errors = null;
+		$this->title = "{$rows[0]["user_name"]} - ";
+		return true;
+	}
+	/**
+	 * ページセッションを破棄しリストへ戻る
+	 */
+	public function back() {
+		Lib::authPage($this);
+		unset($_SESSION[DOMAIN][$this->sessionKey]);
+		return true;
+	}
+	/**
+	 * ユーザー情報を保存する
+	 */
+	public function save() {
+		Lib::authPage($this);
+		if (!$_POST["ROWID"]) $this->errors["form"] = "不正なアクセスです。";
+		if (!$this->errors["user_id"] && strlen($_POST["user_id"]) < 6) 	$this->errors["user_id"] = "半角英数字、記号（-_）で6文字以上を入力してください。";
+		if (!$this->errors["password"] && strlen($_POST["password"]) < 6) 	$this->errors["password"] = "半角英数字、記号（-_@.）で6文字以上を入力してください。";
+		
+		if ($this->errors) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"] = $this->errors;
+			return false;
+		}
+		$dac = new DAC(Fixed::connection(), "mysql");
+		$dac->setColumn("Count(*) cnt");
+		$dac->setOption("user_id = '[0]'", $_POST["user_id"]);
+		$dac->setOption("ROWID <> '[0]'", $_POST["ROWID"]);
+		if (!$dac->selectRows("t_user", $rows)) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = $dac->message;
+			return false;
+		}
+		if ($rows[0]["cnt"] > 0) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = "指定のIDは使用されています。別のIDを入力してください。";
+			return false;
+		}
+		
+		$dac->clear();
+		$dac->setData("user_id", $_POST["user_id"]);
+		$dac->setData("user_name", $_POST["user_name"]);
+		$dac->setData("password", $_POST["password"]);
+		$dac->setData("is_developer", $_POST["is_developer"]);
+		if ($_POST["ROWID"] == "NEW"){
+			if (!$dac->insertData("t_user")){
+				$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = $dac->message;
+				return false;
+			}
+		} else {
+			$dac->setOption("ROWID=[0]", $_POST["ROWID"]);
+			if(!$dac->updateData("t_user")) {
+				$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = $dac->message;
+				return false;
+			}
+		}
+		unset($_SESSION[DOMAIN][$this->sessionKey]);
+		return true;
+	}
+	/**
+	 * ユーザー情報を削除する
+	 */
+	public function delete() {
+		Lib::authPage($this);
+		if (!$_POST["ROWID"]) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = "不正なアクセスです。";
+			return false;
+		}
+		$dac = new DAC(Fixed::connection(), "mysql", false);
+		$dac->setOption("ROWID = '[0]'", $_POST["ROWID"]);
+		
+		if (!$dac->deleteRows("t_user")) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = $dac->message;
+			return false;
+		}
+		unset($_SESSION[DOMAIN][$this->sessionKey]);
+		return true;
+	}
+}
+/**
+ * フォーム要素とルールの連想配列
+ * 指定要素にフィルタールールと必須チェック及びセッション利用の有無を指定する
+ */
+$form["ROWID"] = new Rule(9, "[^0-9NEW]", "a", null, false, true);
+$form["user_id"] = new Rule(20, "[^0-9a-zA-Z\-_]", "a", null, true, true);
+$form["user_name"] = new Rule(20, null, null, null, true, true);
+$form["password"] = new Rule(20, "[^0-9a-zA-Z\-_@.]", "a", null, true, true);
+$form["is_developer"] = new Rule(1, "[^01]", "a", "0", false, true);
+/**
+ * ページインスタンス生成
+ * 実行パス、ルール連想配列及びページセッション名を指定する
+ */
+$page = new Page_User_Edit(__DIR__, $form, "Lib.page.user");
+/**
+ * イベント発生時のコールバック関数、移動先及びセッション保存の有無をセットしload()を実行する
+ */
+$page->setEvent("default", null, array($page, "default"), "", false);
+$page->setEvent("action", "back", array($page, "back"), "user_list.html", false);
+$page->setEvent("action", "save", array($page, "save"), "user_list.html", true);
+$page->setEvent("action", "delete", array($page, "delete"), "user_list.html", false);
+$page->load();

@@ -1,0 +1,240 @@
+<?php require_once("process.html.class"); ?>
+<!doctype html><html>
+<head>
+  <meta charset="utf-8">
+  <title>出張整備の流れ</title>
+  <meta name="format-detection" content="telephone=no,noindex,nofollow,noarchive">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no">
+  <link href="<?= $page->path ?>css/common.css" rel="stylesheet" type="text/css">
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.0.13/css/all.css" integrity="sha384-DNOHZ68U8hZfKXOrtjWvjxusGo9WQnrNx2sqG0tfsghAvtVlRW3tvkXWZh58N9jp" crossorigin="anonymous">
+  <link href="js/bxslider/jquery.bxslider.css" rel="stylesheet" type="text/css">
+  <script type="text/javascript" src="js/jquery-3.3.1.min.js"></script> 
+  <script type="text/javascript" src="js/bxslider/jquery.bxslider.min.js"></script>
+  <script type="text/javascript" src="js/jquery-validation-1.11.1/dist/jquery.validate.js"></script>
+  <script type="text/javascript" src="js/jquery-validation-1.11.1/localization/messages_ja.js"></script>
+  <script type="text/javascript">
+  $(function(){
+    $('.bxslider').bxSlider({
+      auto: true,
+      pause: 4000,
+      speed: 1000,
+      pager: false,
+      controls: false,
+      captions: false,
+      randomStart: true,
+      infiniteLoop: true,
+      responsive: true
+    });
+  });
+  </script>
+</head>
+<body>
+  <div class="wrapper row1">
+    <header id="main_header">
+      <div class="view-pc container clearfix">
+        <div class="header_logo">
+          <!--<h1>淡路島で出張整備なら</h1>-->
+          <!--<p class="top-logo"><a href="index.html">ウメオート</a></p>-->
+          <p>淡路島で出張整備なら</p>
+          <h1 class="top-logo"><a href="index.html">ウメオート</a></h1>
+        </div>
+        <div class="pr_space">
+          <p class="model-muryo">整備モデル募集中!<br>
+            初めてご利用の方なら工賃無料</p>
+          <p><a class="header-seibi-form" href="request.html">整備依頼はこちら　<i class="fas fa-mouse-pointer"></i></a></p>
+        </div>
+      </div>
+      <!-- スマホ　↓　～767px-->
+      <div class="container view-st inlinestart"> <i id="open_menu" class="fas fa-bars"></i>
+        <nav id="menu"> <i id="close_menu" class="fas fa-times"></i>
+          <ul>
+            <li><a href="shop.html">会社案内 </a></li>
+            <li><a href="service.html">サービスメニュー </a></li>
+            <li><a href="process.html">出張整備の流れ </a></li>
+            <li><a href="qa.html">出張整備Q&amp;A </a></li>
+            <li><a href="sell.html">中古部品販売</a></li>
+            <li><a href="contact.html">お問い合わせ </a></li>
+          </ul>
+        </nav>
+        <!--<h1 class="catchcopy">淡路島で出張整備なら</h1>-->
+        <!--<p class="top-logo"><a href="index.html">ウメオート</a></p>-->
+        <p class="catchcopy">淡路島で出張整備なら</p>
+        <h1 class="top-logo"><a href="index.html">ウメオート</a></h1>
+      </div>
+      <!-- スマホ　↑　～767px--> 
+      <div class="loader">Loading...</div>
+    </header>
+  </div>
+  <div class="wrapper row2 view-pc container">
+    <nav id="g_navi" class="view-pc">
+      <ul class="view-pc">
+        <li><a href="shop.html">会社案内 </a></li>
+        <li><a href="service.html">サービスメニュー </a></li>
+        <li><a href="process.html">出張整備の流れ </a></li>
+        <li><a href="qa.html">出張整備Q&amp;A </a></li>
+        <li><a href="sell.html">中古部品販売</a></li>
+        <li><a href="contact.html">お問い合わせ </a></li>
+      </ul>
+    </nav>
+  </div>
+  <div class="wrapper_visual">
+    <div class="wrapper row3">
+      <div class="mainvisual">
+        <ul class="bxslider" >
+          <li><img src="images/mv1.jpg"></li>
+          <li><img src="images/mv2.jpg"></li>
+          <li><img src="images/mv3.jpg"></li>
+          <li><img src="images/mv4.jpg"></li>
+          <li><img src="images/mv5.jpg"></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="wrapper row4">
+    <main class="clearfix mb40">
+      <div class="container">
+        <nav class="wrap crumbs">
+          <ul>
+            <?php if(!strpos($_SERVER['REQUEST_URI'],"index.html")) { ?>
+            <li><a href="index.html" title="brise">ウメオート</a></li>
+            <?= $page->crumbs ?>
+            <?php } ?>
+          </ul>
+        </nav>
+        <article id="main_contents">
+<style>
+@charset "utf-8";
+/* CSS Document */
+section h1{
+	font-size: 20px;
+	padding: 5px;
+	background:#D62854;	
+}
+section h3 {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+section h3 p:nth-of-type(2) {
+  margin-left: auto;
+}
+section h4 {
+margin: 0;
+font-size: 16px;
+}
+section div {
+  display: none;
+  padding: 20px 0;
+}
+address a{
+	display:block;
+	width:160px;
+	height:40px;
+	border-radius: 3px;
+	background: #D62854;
+	color:#FFF;
+	line-height: 40px;
+	text-align: center;
+	text-decoration: none;
+	float: right;
+}
+address a:hover
+{
+	color: #333;
+	background-color: #D83C64;
+}
+</style>
+<script>
+$(function(){
+  $("section h3").click(function(){
+    $(this).next("div").slideToggle(300);
+  });
+});
+</script>
+<!---->
+          <div class="page_title">
+            <h2>出張整備の流れ</h2>
+          </div>
+          <p class="mt20">淡路島全域のみ対応可能です。その他の地域についてはお断りさせていただいております。ご了承ください。</p>
+          <section>
+            <h3><p>STEP1</p><p><i class="fas fa-angle-down"></i></p></h3>
+            <div>
+            <h4>整備依頼フォームより必要事項入力、送信</h4>
+            <p>右下のフォームボタンよりフォームに進んでいただき、 今回依頼される車の車検証をご準備のうえ、<br>
+              必要事項をご入力下さい。またわからない点等があった際お電話いただければ、対応可能です。 </p>
+            <p>フォームの送信が完了すると、お客様のメールアドレス宛に自動返信での受付完了メールが届きます。</p>
+            <p style="margin-top:30px; margin-bottom:0px;"><a style="margin:0 0 0 auto" class="formbtn" href="request.html">整備依頼はこちら　<i class="fas fa-mouse-pointer"></i></a></p>
+          </div>
+          </section>
+          <section>
+            <h3><p>STEP2</p><p><i class="fas fa-angle-down"></i></p></h3>
+            <div>
+            <h4>おおよその見積もり結果のご案内</h4>
+            <p>受付完了後２営業日以内におおよその見積もり結果をメールでお知らせいたします。(フォームでメールアドレスを入力していない方はこちらからお電話をかけさせて頂きますので、その際に口頭でお伝えします。)</p>
+            ※車種や型式、お車の状態によっては、実際の作業途中で<strong>追加で別途部品が必要になる</strong>ことも十分ございます。その際は追加で部品代を頂くことになります。（復旧作業、再作業による<strong>工賃の追加はございません</strong>のでご安心ください。）そのような場合作業を部品が届くまで中断することになりますのでご理解のほどよろしくお願いします。
+            </div>
+            </section>
+          <section>
+            <h3><p>STEP3</p><p><i class="fas fa-angle-down"></i></p></h3>
+            <div>
+            <h4>承諾</h4>
+            <!--<p>ご納得いただければ、承諾する旨のメールをご返信ください。日程調整に移らせていただきます。</p>-->
+            <p>ご納得いただければ、承諾する旨のメールをご返信ください。時間調整に移らせていただきます。</p>
+            </div>
+          </section>
+          <section>
+            <h3><p>STEP4</p><p><i class="fas fa-angle-down"></i></p></h3>
+            <div>
+            <h4>時間調整</h4>
+            <!--<h3>日時調整</h3>-->
+            <p>弊社から時間調整の案内メール(フォームでメールアドレスを入力していない方はこちらからお電話をかけさせて頂きます。)をお送りいたしますので、<strong>弊社の営業時間内</strong>での希望時間を第三希望まで記入し、メールでご返信ください。作業予約メールを送らせていただきます。(フォームでメールアドレスを入力していない方はこちらからお電話をかけさせて頂きますので、口頭でお伝えください。)</p>
+            <p>例)　第一希望　〇時～〇時</p>
+            <!--<p>弊社から日程調整の案内メール(フォームでメールアドレスを入力していない方はこちらからお電話をかけさせて頂きます。)をお送りいたしますので、<strong>弊社の営業時間内</strong>での希望日時を第三希望まで記入し、メールでご返信ください。作業予約メールを送らせていただきます。(フォームでメールアドレスを入力していない方はこちらからお電話をかけさせて頂きますので、口頭でお伝えください。)</p>-->
+            <!--<p>例)　第一希望　〇月〇日〇時～〇時</p>-->
+            </div>
+          </section>
+          <section>
+            <h3><p>STEP5</p><p><i class="fas fa-angle-down"></i></p></h3>
+            <div>
+            <h4>整備の実施</h4>
+            <p>車検証（250cc以下の二輪車の場合は自賠責証）と運転免許証をご準備下さい。予約時間になりましたら、実際に弊社のほうからご自宅に伺います。借家や賃貸、マンション等にお住まいの方は<strong>土地の所有者に事前に作業許可をもらっておいて下さい。</strong></p>
+            <p>万が一追加で別途部品が必要になった場合作業が後日持ち越されたり、作業時間が大幅にかかることもございますのでご了承ください。後日になった場合現状復旧させていただきますが、<strong>台車の貸し出しや移送は行っておりません</strong>ので、あらかじめご了承ください。</p>
+            <p>※未成年かつ自動車の名義人が本人ではない場合、名義人の同意書が必要です。</p>
+            </div>
+          </section>
+          <section>
+            <h3><p>STEP6</p><p><i class="fas fa-angle-down"></i></p></h3>
+            <div>
+            <h4>お支払い</h4>
+            <p>作業終了後、整備内容にご納得いただけましたら、その場でお支払いをお願い致します。<br>
+              なお、お支払方法は現金のみとなります。ご了承下さい。</p>
+              </div>
+          </section>
+<!-- -->
+        </article>
+      </div>
+    </main>
+  </div>
+  <div class="wrapper row5">
+    <nav id="menu_f" class="fixedform view-st"> <i id="close_menu_f" class="fas fa-times"></i>
+      <h1>整備モデル募集中!<br>
+        初めてご利用の方なら工賃無料</h1>
+      <p><a class="formbtn_fixedform" href="request.html">整備依頼はこちら　<i class="fas fa-mouse-pointer"></i></a></p>
+    </nav>
+    <footer id="main_footer">
+      <ul>
+        <li><a href="shop.html">会社案内 </a></li>
+        <li><a href="service.html">サービスメニュー </a></li>
+        <li><a href="process.html">出張整備の流れ </a></li>
+        <li><a href="qa.html">出張整備Q&amp;A </a></li>
+        <li><a href="sell.html">中古部品販売</a></li>
+        <li><a href="contact.html">お問い合わせ </a></li>
+        <li><a href="sitemap.html">サイトマップ</a></li>
+      </ul>
+      <p> Copyright (C)2020ウメオートAll Rights Reserved. </p>
+    </footer>
+  </div>
+  <script type="text/javascript" src="<?= $page->path ?>js/burger_menu.js"></script>
+  <script type="text/javascript" src="<?= $page->path ?>js/advertising.js"></script>
+</body>
+</html>

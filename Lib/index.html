@@ -1,0 +1,107 @@
+<?php 
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * インディックスページ
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2020 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.200419
+ */
+require_once("index.html.class");
+?>
+<?php include("inc/header.inc"); ?>
+<style>
+section .content article:nth-of-type(n+2) {
+	padding: 10px;
+}
+section .content article h2 {
+	float: none;
+}
+section .content article dl {
+	display: flex;
+	margin-bottom: 5px;
+	padding: 10px;
+	background: rgba(255,255,255,0.4);
+	border-radius: 4px;
+	align-items: center;
+}
+section .content article dl dt {
+	min-width: 120px;
+	font-weight: bold;
+}
+section .content article dl dd {
+	width: 100%;
+}
+section .content article dl dt a {
+	color: #00c683;
+}
+</style>
+<section>
+	<div class="wrap clearfix">
+		<div id="menu">
+			<?php include("inc/menu.inc"); ?>
+		</div>
+		<div class="content">
+			<article>
+				<?= ($page->errors["message"]) ? "<p>{$page->errors["message"]}</p>" : "" ?>
+			</article>
+			<article>
+				<h2>For Developers</h2>
+				<dl>
+					<dt><a href="user_list.html">Users</a></dt>
+					<dd>Controls who can log in to the LIB PHP Framework. <br> Menus with a green lock icon can only be edited by users with developer privileges.</dd>
+				</dl>
+				<dl>
+					<dt><a href="template_list.html">Templates</a></dt>
+					<dd>Create a template for including the header, footer and menu that are common to HTML.</dd>
+				</dl>
+				<dl>
+					<dt><a href="page_list.html">Pages</a></dt>
+					<td>Select the header and footer template and edit the content part.<br>
+In event editing, Defines behavior on postback.</td>
+				</dl>
+				<dl>
+					<dt><a href="css_list.html">CSS Files</a></dt>
+					<td>Place CSS in an arbitrary directory and update it on the WEB as needed.<br> Breakpoints are output to the CSS file that is saved when the media size is set.</td>
+				</dl>
+				<dl>
+					<dt><a href="js_list.html">JS Files</a></dt>
+					<td>Save the script required for loading tracking tags and videos, which are common operations. <br> In Ajax, describe client processing here, and define the server side behavior by editing the event of the page list.</td>
+				</dl>
+			</article>
+			<article>
+				<h2>Image Folder</h2>
+				<dl>
+					<dt><a href="image.html?folder=common">common</a></dt>
+					<dd>When you add an element to folder() of static arrays, the specified directory is added under image.</dd>
+				</dl>
+			</article>
+			<article>
+				<h2>Contents Category</h2>
+				<dl>
+					<dd>Adding element to the category() of static arrays, allows you to create a categorized article list. </dd>
+				</dl>
+			</article>
+			<article>
+				<h2>Management Tools</h2>
+				<dl>
+					<dt><a href="todo_list.html">Todo List</a></dt>
+					<dd>Manage Todo that should be done in the project. Also useful as a memo for refactoring.</dd>
+				</dl>
+				<dl>
+					<dt><a href="note_list.html">Release Note</a></dt>
+					<dd>We will record the update contents of the project.<br> Recording the details of the update and the pages will be useful for the next update.</dd>
+				</dl>
+			</article>
+			<article>
+				<h2>Application Setting</h2>
+				<dl>
+					<dt><a href="fixed_list.html">Static Arrays</a></dt>
+					<dd>Manage common quantitative items in projects.<br> Quantitative items are composed of key vs. value, and if you call like Fixed::category(), an associative array will be returned. <br> The fixed form options are managed here.</dd>
+				</dl>
+			</article>
+		</div>
+	</div>
+</section>
+<?php include("inc/footer.inc"); ?>

@@ -1,0 +1,199 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * ToDoリストページクラス
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2019 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.191220
+ */
+namespace Lib;
+
+require_once("Conf.inc");
+require_once("Common/Page.class");
+require_once("Common/DAC.class");
+require_once("Common/Pager.class");
+
+class Page_Todo_List extends Page {
+	/**
+	 * @property array $rows ToDoデータ配列
+	 * @property Pager $pager Pagerクラスインスタンス
+	 */
+	public $title;
+	public $rows;
+	public $pager;
+	/**
+	 * 
+	 */
+	public function default() {
+		Lib::authPage($this);
+		$this->title = "Todo List - ";
+		
+		// note: Todo情報を獲得
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setColumn("t.*");
+		$dac->setColumn("u.user_name");
+		$dac->setOrder("t.tm_work DESC");
+		if ($_GET["keyword"]) {
+			foreach (explode(" ", $_GET["keyword"]) as $keyword) $option[] = "(content Like '%{$keyword}%')";
+			$dac->setOption(implode(" Or ", $option));
+		}
+		
+		$pager = new Pager();
+		$pager->limit = 10;
+		$pager->page = ($_GET["p"]) ? Filter::get($_GET["p"], 3, "[^0-9]", "a", "1") : "1";
+		
+		if (!$dac->selectPageRows("t_todo As t Left Join t_user As u On (t.user_id = u.user_id)", $rows, $pager)) {
+			$this->errors["message"] = $dac->message;
+			return true;
+		}
+		$this->rows = Filter::getEntities($rows);
+		$this->pager = $pager;
+		return true;
+	}
+	/**
+	 * Todo情報を保存
+	 */
+	public function save() {
+		Lib::authPage($this);
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setData("user_id", $_POST["user_id"]);
+		$dac->setData("content", $_POST["content"]);
+		$dac->setData("tm_work", $_POST["tm_work"]);
+		$dac->setData("is_completed", $_POST["is_completed"]);
+		
+		if ($_POST["ROWID"]) {
+			$dac->setOption("ROWID = '[0]'", $_POST["ROWID"]);
+			if (!$dac->updateData("t_todo", 1)) {
+				$_SESSION[DOMAIN][$this->sessionKey]["errors"]["message"] = $dac->message;
+				return false;
+			}
+		} else {
+			if (!$dac->insertData("t_todo")) {
+				$_SESSION[DOMAIN][$this->sessionKey]["errors"]["message"] = $dac->message;
+				return false;
+			}
+		}
+		unset($_SESSION[DOMAIN][$this->sessionKey]);
+		return true;
+	}
+	/**
+	 * Todo情報を削除
+	 */
+	public function remove() {
+		Lib::authPage($this);
+		if (!$_POST["ROWID"]) $this->response("必要な情報が送信されませんでした。");
+		
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setOption("ROWID = [0]", $_POST["ROWID"]);
+		$dac->deleteRows("t_todo", 1);
+		$this->response("", true);
+	}
+	/**
+	* Todo登録フォームを出力
+	*/
+	public function modal() {
+		Lib::authPage($this);
+		// note: 編集するTodo情報を取得
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setColumn("user_id");
+		$dac->setColumn("content");
+		$dac->setColumn("is_completed");
+		$dac->setColumn("tm_work");
+		$dac->setOption("ROWID = '[0]'", $_POST["ROWID"]);
+		if (!$dac->selectRows("t_todo", $rows, 1)) die("FAILURE:{$dac->message}");
+		$rowEdit = $rows[0];
+		// note: 新規登録時の初期表示データを設定
+		if (!$rowEdit) {
+			$rowEdit["tm_work"] = date("Y/m/d");
+			$rowEdit["user_id"] = $_SESSION[DOMAIN]["Lib.user"]["user_id"];
+		}
+		
+		$tm = strtotime($rowEdit["tm_work"]);
+		
+		// note: モーダル作成
+		$tag = "<div class=\"detail clearfix\">\n";
+		$tag.= "\t<dl>\n";
+		$tag.= "\t<dt>日付</dt>\n";
+		$tag.= "\t\t<dd>\n";
+		$tag.= "\t\t\t<select name=\"year\" id=\"year\">\n";
+		for ($year = date("Y"); $year >= date("Y") - 5; $year--) {
+			$selected = ($year == date("Y", $tm)) ? " selected" : "";
+			$tag.= "\t\t\t\t<option value=\"{$year}\"{$selected}>{$year}</option>\n";
+		}
+		$tag.= "\t\t\t</select>年\n";
+		$tag.= "\t\t\t<select name=\"month\" id=\"month\">\n";
+		for ($month = 1; $month <= 12; $month++) {
+			$selected = ($month == date("n", $tm)) ? " selected" : "";
+			$tag.= "\t\t\t\t<option value=\"{$month}\"{$selected}>{$month}</option>\n";
+		}
+		$tag.= "\t\t\t</select>月\n";
+		$tag.= "\t\t\t<select name=\"day\" id=\"day\">\n";
+		for ($day = 1; $day <= 31; $day++) {
+			$selected = ($day == date("j", $tm)) ? " selected" : "";
+			$tag.= "\t\t\t\t<option value=\"{$day}\"{$selected}>{$day}</option>\n";
+		}
+		$tag.= "\t\t\t</select>日\n";
+		$tag.= "\t\t</dd>\n";
+		$tag.= "\t</dl>\n";
+		
+		// note:user情報を取得
+		$dac->clear();
+		$dac->setColumn("user_id, user_name");
+		$dac->setOption("is_developer = 1");
+		if (!$dac->selectRows("t_user", $rows)) die("FAILURE:{$dac->message}");
+		
+		$tag.= "\t\t<dl>\n";
+		$tag.= "\t\t<dt>編集者</dt>\n";
+		$tag.= "\t\t<dd>\n";
+		$tag.= "\t\t\t<select name=\"user_id\">\n";
+		foreach ($rows as $row) {
+			$selected = ($row["user_id"] == $rowEdit["user_id"]) ? " selected" : "";
+			$tag.= "\t\t\t\t<option value=\"{$row["user_id"]}\"{$selected}>{$row["user_name"]}</option>\n";
+		}
+		$tag.= "\t\t\t</select>\n";
+		$tag.= "\t\t</dd>\n";
+		$tag.= "\t</dl>\n";
+		
+		$tag.= "\t<dl>\n";
+		$tag.= "\t\t<dt>完了</dt>\n";
+		$tag.= "\t\t<dd>\n";
+		$tag.= Tag::getRadio("is_completed", array("1" => "完了", "0" => "未完了"), $rowEdit["is_completed"]);
+		$tag.= "\t\t</dd>\n";
+		$tag.= "\t</dl>\n";
+		$tag.= "</div>\n";
+		
+		$tag.= "<dl class=\"textarea\">\n";
+		$tag.= "\t<dt>Todo</dt>\n";
+		$tag.= "\t<dd><textarea name=\"content\">{$rowEdit["content"]}</textarea></dd>\n";
+		$tag.= "</dl>\n";
+		
+		$tag.= "<input type=\"hidden\" name=\"ROWID\" value=\"{$_POST["ROWID"]}\">\n";
+		
+		echo $tag;
+		exit();
+	}
+}
+/**
+ * フォーム要素とルールの連想配列
+ * 指定要素にフィルタールールと必須チェック及びセッション利用の有無を指定する
+ */
+$form["ROWID"] = new Rule(9, "[^0-9]", "a", null, false, false);
+$form["user_id"] = new Rule(20, "[^0-9a-zA-Z]", "a", null, false, true);
+$form["tm_work"] = new Rule(10, "[^0-9\-]", "a", null, false, true);
+$form["is_completed"] = new Rule(1, "[^01]", "a", "0", false, true);
+$form["content"] = new Rule(50000, "", null, null, false, true);
+/**
+ * ページインスタンス生成
+ * 実行パス、ルール連想配列及びページセッション名を指定する
+ */
+$page = new Page_Todo_List(__DIR__, $form, "Lib.page.todo");
+/**
+ * イベント発生時のコールバック関数、移動先及びセッション保存の有無をセットしload()を実行する
+ */
+$page->setEvent("default", null, array($page, "default"), "", false);
+$page->setEvent("action", "save", array($page, "save"), "todo_list.html", true);
+$page->setEvent("action", "modal", array($page, "modal"), "", false);
+$page->setEvent("action", "remove", array($page, "remove"), "", false);
+$page->load();

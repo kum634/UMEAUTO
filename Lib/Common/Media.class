@@ -1,0 +1,311 @@
+<?php
+ /**
+ * 文字コード UTF-8N 改行コードLF
+ * メディアククラス
+ * modified: 200226 Basic Display API 対応
+ *
+ * プロパティーアクセスは__get()__set()マジックメソッドによって制御される。
+ * 
+ * @package    Lib
+ * @copyright  Copyright (c) 2019-2020 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.200226
+ */
+namespace Lib;
+
+require_once("Common/DAC.class");
+require_once("Common/Trace.class");
+
+class Media {
+	/**
+	 * @property-read string $message エラーメッセージ
+	 * @property string $cachePath キャッシュファイル物理パス
+	 * @property string $token アクセストークン
+	 * @property string $userName ユーザーネーム
+	 * @property string $interval 日付書式文字列、保存日時が指定日時以前の場合は再取得する（デフォルトは1時間前）
+	 * @property bool $append メディアデータベースに追記する場合はture（デフォルトはfalse）
+	 */
+	private $message;
+	private $cachePath;
+	private $token;
+	private $userName;
+	private $interval;
+	private $append;
+	/**
+	 * コンストラクタ
+	 * @param string $node ドキュメントルートへの相対パス（Page::node プロパティ）
+	 * @param string $token アクセストークン
+	 */
+	public function __construct(string $path, string $token) {
+		$this->cachePath = str_replace("/public_html/", "/lib_cache/", realpath($path). "/");
+		$this->token = $token;
+		$this->interval = "-1 hour";
+		$this->append = false;
+	}
+	/**
+	 * マジックメソッドゲッター
+	 *
+	 * @param string $name メンバ変数名
+	 */
+	public function __get(string $name) {
+		return $this->$name;
+	}
+	/**
+	 * マジックメソッドセッター
+	 *
+	 * @param string $name メンバ変数名
+	 * @param mixed $value メンバ変数値
+	 */
+	public function __set(string $name, $value) {
+		$names = ["cachePath", "interval", "append", "userName"];
+		if (in_array($name, $names)) $this->$name = $value;
+	}
+	/**
+	 * メディアをロードする
+	 * modified: 191012 intervalがnullの場合、最新メディアを獲得する
+	 * modified: 200226 最終保存時のアクセストークンを獲得する
+	 *
+	 * @param Pager $pager Pager クラスインスタンス
+	 * @return array メディアデータ行配列
+	 */
+	public function load($pager = null) {
+		if (!is_dir($this->cachePath)) mkdir($this->cachePath, 0700, true);
+		$path = "{$this->cachePath}media.db";
+		//Trace::setText("path={$path}");
+
+		$state = $this->getSaveState($path);
+		$tmSave = $state["tm_save"];
+		if ($state["access_token"]) $this->token = $state["access_token"];
+		
+		$tmDiff = date("Y-m-d H:i:s", strtotime($this->interval));
+		//Trace::setText("tm_save={$tmSave} interval={$tmDiff}");
+		if (!$this->interval || !$tmSave || strtotime($tmSave) < strtotime($tmDiff)) {
+			if (!$this->append && is_file($path)) unlink($path);
+			if (!$this->saveCacheForBasicDisplay($path)) return null;
+		}
+
+		// note: 最新メディアを獲得（規定で30件獲得）
+		$dac = new DAC(["path" => $path], "sqlite");
+		$dac->setColumn("*");
+		$dac->setOrder("tm_create DESC");
+		if ($pager) $dac->selectPageRows("t_media", $rows, $pager);
+		else $dac->selectRows("t_media", $rows, 30);
+		
+		$this->message = $dac->message;
+		return $rows;
+	}
+	/**
+	 * キャッシュデータベースを作成する
+	 *
+	 * @return bool 成功時に true を返す
+	 */
+	private function createCacheFile($path) {
+		touch($path);
+		$dac = new DAC(["path" => $path], "sqlite");
+		try {
+			$dac->open();
+			$dac->command = "CREATE TABLE [t_media] (
+				[ROWID] INTEGER PRIMARY KEY AUTOINCREMENT,
+				[media_id] TEXT,
+				[media_type] TEXT,
+				[standard] TEXT,
+				[low] TEXT,
+				[thumbnail] TEXT,
+				[caption] TEXT,
+				[tags] TEXT,
+				[likes] INTEGER,
+				[link_url] TEXT,
+				[visible] INTEGER,
+				[tm_create] TEXT
+				)";
+			$dac->execute();
+
+			$dac->command = "CREATE TABLE [t_time] (
+				[tm_save] TEXT,
+				[access_token] TEXT,
+				[expires_in] INTEGER
+				)";
+			$dac->execute();
+			
+			return true;
+		} catch (\Exception $ex) {
+			$this->message = $ex->getMessage();
+			return false;
+		} finally {
+			$dac->close();
+		}
+	}
+	/**
+	 * 最終保存時の保存日とアクセストークンを獲得する
+	 *
+	 * @return array 最終保存時の保存日とアクセストークン
+	 */
+	private function getSaveState($path) {
+		if (!is_file($path)) return null;
+		$dac = new DAC(["path" => $path], "sqlite");
+		try {
+			$dac->open();
+			$dac->setColumn("*");
+			$rows =  $dac->select("t_time");
+			return $rows[0];
+		} catch (\Exception $ex) {
+			$this->message = $ex->getMessage();
+			return null;
+		} finally {
+			$dac->close();
+		}
+	}
+	/**
+	 * 最新のメディアを取得しキャッシュデータベースに保存する
+	 *
+	 * @return bool 成功時に true を返す
+	 */
+	private function saveCache($path) {
+		if (!is_file($path) && !$this->createCacheFile($path)) return false;
+		$dac = new DAC(["path" => $path], "sqlite");
+		try {
+			$url = "https://api.instagram.com/v1/users/self/media/recent/";
+			$url.= "?access_token={$this->token}";
+			$data = json_decode(file_get_contents($url));
+			//Trace::setText("url={$url}");
+
+			$dac->open();
+			foreach ($data->data as $media) {
+				if ($media->type == "video") $url = $media->videos->standard_resolution->url;
+				$url = $media->images->standard_resolution->url;
+
+				// note: メディア情報を保存
+				$dac->clear();
+				$dac->setColumn("Count(*)");
+				$dac->setOption("media_id = [0]", $media->id);
+				$hasRow = $dac->scalar("t_media");
+
+				$dac->clear();
+				$dac->setData("media_id", $media->id);
+				$dac->setData("media_type", $media->type);
+				if ($media->type == "video") {
+					$dac->setData("standard", $media->videos->standard_resolution->url);
+					$dac->setData("low", $media->videos->standard_resolution->url);
+					$dac->setData("thumbnail", $media->videos->standard_resolution->url);
+				} else {
+					$dac->setData("standard", $media->images->standard_resolution->url);
+					$dac->setData("low", $media->images->standard_resolution->url);
+					$dac->setData("thumbnail", $media->images->standard_resolution->url);
+				}
+				$dac->setData("caption", $media->caption->text);
+				if (!is_array($media->tags)) $dac->setData("tags", "#{$media->tags} ");
+				else $dac->setData("tags", "#" . implode(" #", $media->tags) . " ");
+				$dac->setData("likes", $media->likes->count);
+				$dac->setData("link_url", $media->link);
+				$dac->setData("tm_create", date("Y/m/d H:i:s", $media->created_time));
+				$dac->setData("visible", "1");
+				if (!$hasRow) $dac->insert("t_media");
+				else {
+					$dac->setOption("media_id = [0]", $media->id);
+					$dac->update("t_media");
+				}
+			}
+
+			// note: 保存時間を記録する
+			$dac->clear();
+			$dac->setColumn("Count(*)");
+			$hasRow = $dac->scalar("t_time");
+
+			$dac->clear();
+			$dac->setData("tm_save", date("Y/m/d H:i:s"));
+			if ($hasRow) $dac->update("t_time");
+			else $dac->insert("t_time");
+			
+			return true;
+		} catch (\Exception $ex) {
+			$this->message = $ex->getMessagse();
+			return false;
+		} finally {
+			$dac->close();
+		}
+	}
+	/**
+	 * added: 200226 Basic Display API
+	 * 最新のメディアを取得しキャッシュデータベースに保存する
+	 *
+	 * @return bool 成功時に true を返す
+	 */
+	private function saveCacheForBasicDisplay($path) {
+		if (!is_file($path) && !$this->createCacheFile($path)) return false;
+		$dac = new DAC(["path" => $path], "sqlite");
+		try {
+			// note: 長期トークンをリフレッシュ
+			$url = "https://graph.instagram.com/refresh_access_token";
+			$url.= "?grant_type=ig_refresh_token";
+			$url.= "&access_token={$this->token}";
+			$auth = json_decode(file_get_contents($url), true);
+
+			// note: 最新のトークンを使用してメディアを取得
+			$url = "https://graph.instagram.com/me/media";
+			$url.= "?fields=id,caption,media_type,media_url,timestamp,thumbnail_url";
+			$url.= "&access_token={$auth["access_token"]}";
+			$data = json_decode(file_get_contents($url), true);
+			//Trace::setText("url={$url}");
+
+			$dac->open();
+			foreach ($data["data"] as $media) {
+				$dac->clear();
+				$dac->setColumn("Count(*)");
+				$dac->setOption("media_id = [0]", $media["id"]);
+				$hasRow = $dac->scalar("t_media");
+
+				$dac->clear();
+				$dac->setData("media_id", $media["id"]);
+				$dac->setData("media_type", $media["media_type"]);
+				if ($media["media_type"] == "VIDEO") {
+					$dac->setData("standard", $media["thumbnail_url"]);
+					$dac->setData("low", $media["thumbnail_url"]);
+					$dac->setData("thumbnail", $media["thumbnail_url"]);
+				} else {
+					$dac->setData("standard", $media["media_url"]);
+					$dac->setData("low", $media["media_url"]);
+					$dac->setData("thumbnail", $media["thumbnail_url"]);
+				}
+				$dac->setData("caption", $media["caption"]);
+				$dac->setData("tags", $this->getTag($media["caption"]));
+				$dac->setData("link_url", "https://www.instagram.com/{$this->userName}/");
+				$dac->setData("tm_create", date("Y/m/d H:i:s", strtotime($media["timestamp"])));
+				$dac->setData("visible", "1");
+				if (!$hasRow) $dac->insert("t_media");
+				else {
+					$dac->setOption("media_id = [0]", $media->id);
+					$dac->update("t_media");
+				}
+			}
+			// note: 保存時間と最新のアクセストークンを記録する
+			$dac->clear();
+			$dac->setColumn("Count(*)");
+			$hasRow = $dac->scalar("t_time");
+
+			$dac->clear();
+			$dac->setData("tm_save", date("Y/m/d H:i:s"));
+			$dac->setData("access_token", $auth["access_token"]);
+			$dac->setData("expires_in", $auth["expires_in"]);
+			if ($hasRow) $dac->update("t_time");
+			else $dac->insert("t_time");
+			
+			return true;
+		} catch (\Exception $ex) {
+			$this->message = $ex->getMessagse();
+			return false;
+		} finally {
+			$dac->close();
+		}
+	}
+	/**
+	 * キャプションの含まれるハッシュタグを獲得する
+	 *
+	 * @return string ハッシュタグ
+	 */
+	private function getTag($caption) {
+		preg_match_all("/(#.+ #|#.+\n|#.+$)/", $caption, $tags);
+		if (!is_array($tags[1])) return "";
+		foreach ($tags[1] as $tag) $array[] = rtrim($tag, " #\n");
+		return implode(" ", $array). " ";
+	}
+}

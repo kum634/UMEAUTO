@@ -1,0 +1,161 @@
+<?php
+ /**
+ * 文字コード UTF-8N 改行コードLF
+ * クロネコwebコレクト通信クラス
+ *
+ * 取引情報照会メソッドを実装する。
+ * プロパティーアクセスは__get()__set()マジックメソッドによって制御される。 
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2018-2019 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    LIB PHP Framework v3.2.191218
+ */
+namespace Lib;
+
+require_once("Common/Filter.class");
+require_once("Common/DAC.class");
+require_once("Common/MailClass.class");
+
+class Kuroneko {
+	/**
+	 * @property-read string $authURL 認証URL
+	 * @property-read string $infoURL 取引情報照会URL
+	 * @property-read string $trader_code 加盟店コード
+	 * @property-read string $access_key 管理画面ログインアクセスキー
+	 * @property-read string $password APIパスワード
+	 * @property-read string $auth_pwd 認証パスワード
+	 * @property-read string $message エラーメッセージ
+	 */
+	private $authURL;
+	private $infoURL;
+	private $trader_code;
+	private $access_key;
+	private $password;
+	private $auth_pwd;
+	private $message;
+	/**
+	 * コンストラクタ
+	 */
+	public function __construct($trader_code, $password, $access_key) {
+		$this->trader_code = $trader_code;
+		$this->password = $password;
+		$this->access_key = $access_key;
+
+		if (DOMAIN == "domain.bxi.libframework.work") {
+			$this->authURL = "https://ptwebcollect.jp/test_gateway/xp/authXp.api";
+			$this->infoURL = "https://ptwebcollect.jp/test_gateway/xp/tradeInfoXp.api";
+		} else {
+			$this->authURL = "https://apixp.kuronekoyamato.co.jp/api/xp/authXp";
+			$this->infoURL = "https://apixp.kuronekoyamato.co.jp/api/xp/tradeInfoXp";
+		}
+	}
+	/**
+	 * マジックメソッドゲッター
+	 *
+	 * @param string $name メンバ変数名
+	 */
+	public function __get(string $name) {
+		return $this->$name;
+	}
+	/**
+	 * マジックメソッドセッター
+	 *
+	 * @param string $name メンバ変数名
+	 * @param mixed $value メンバ変数値
+	 */
+	public function __set(string $name, $value) {	}
+	/**
+	 * 認証パスワードを取得する
+	 * funciton_div		1.機能区分
+	 * trader_code		2.加盟店コード
+	 * password				3.APIパスワード
+	 * access_key			4.管理画面ログインアクセスキー
+	 * (Example) 0201812121149461dcf0eb7906e8e4faa41725d1a3eae8c
+	 */
+	public function auth() {
+		$data["function_div"] = "F01";
+		$data["trader_code"] = $this->trader_code;
+		$data["password"]= $this->password;
+		$data["access_key"] = $this->access_key;
+
+		try {
+			$ch = curl_init($this->authURL);
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+			curl_setopt($ch, CURLOPT_POST, true);
+			curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+
+			$res = curl_exec($ch);
+			$status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+			if ($status != 200) throw new \Exception("決済サービスに接続できませんでした。: {$status}");
+
+			$xml = new \SimpleXMLElement($res);
+			$res = json_decode(json_encode($xml), true);
+
+			if ($res["errorCode"]) {
+				$this->message = $this->getError($res["errorCode"]);
+				return false;
+			} else {
+				$this->auth_pwd = $res["auth_pwd"];
+				return true;
+			}
+		} catch (\Exception $ex) {
+			$this->message = $ex->getMessage();
+			return false;
+		}
+	}
+	/**
+	 * 取引情報照会リクエスト
+	 * funciton_div		1.機能区分
+	 * trader_code		2.加盟店コード
+	 * order_no				3.受付番号
+	 * auth_pwd				4.認証パスワード
+	 */
+	public function getInfo($order_number, &$info) {
+		$data["function_div"] = "F04";
+		$data["trader_code"] = $this->trader_code;
+		$data["order_no"]= $order_number;
+		$data["auth_pwd"] = $this->auth_pwd;
+		
+		try {
+			$ch = curl_init($this->infoURL);
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+			curl_setopt($ch, CURLOPT_POST, true);
+			curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+
+			$res = curl_exec($ch);
+			$status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+			if ($status != 200) throw new \Exception("決済サービスに接続できませんでした。: {$status}");
+
+			$xml = new \SimpleXMLElement($res);
+			$res = json_decode(json_encode($xml), true);
+			
+			if ($res["errorCode"]) {
+				$this->message = $this->getError($res["errorCode"]);
+				return false;
+			} else {
+				// note: 結果件数が0件の場合は決済情報を削除されている
+				if ($res["resultCount"] != "0") $info = $res["resultData"];
+				return true;
+			}
+		} catch (\Exception $ex) {
+			$this->message = $ex->getMessage();
+			return false;
+		}
+	}
+	/**
+	 * レスポンスコードごとのエラーメッセージを出力する
+	 */
+	private function getError($errorCode) {
+		switch ($errorCode) {
+			case "F011010502":
+				return "クロネコwebコレクト加盟店情報が間違っています。";
+			case "Z012000005":
+				return "クロネコwebコレクトへの接続はタイムアウトしました。。";
+			case "Z012000007":
+				return "クロネコwebコレクト加盟店の取引は停止状態です。";
+			default:
+				return "クロネコwebコレクトエラー: {$errorCode}";
+		}
+	}
+}

@@ -1,0 +1,122 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ *
+ * @package    basepack
+ * @copyright  Copyright (c) 2019
+ * @version    1.0.20201013
+ * @framework  Lib Framework v3.1.180515
+ */
+require_once("{$_SERVER["DOCUMENT_ROOT"]}/Lib/Conf.inc");
+require_once("Common/Page.class");
+require_once("Common/DAC.class");
+require_once("Common/Fixed.class");
+require_once("Common/Lib.class");
+require_once("Common/Translator.class");
+
+use Lib\{Page,DAC,Fixed,Lib,Translator};
+
+class Page_Index extends Page {
+	public $calendar;
+	public $parts;
+
+	/**
+	 * 
+	 */
+	public function calendar() {
+		date_default_timezone_set('Asia/Tokyo');
+		if ($_GET["ym"]) {
+			$ym = $_GET["ym"];
+		} else {
+			$ym = date("Ym");
+		}
+		
+		$year = date('Y',strtotime($ym."01"));
+		$month = date("m",strtotime($ym."01"));
+		
+		$this->calendar["lastmonth"] = date("Ym",strtotime($ym."01"." -1 month "));
+		$this->calendar["nextmonth"] = date("Ym",strtotime($ym."01"." +1 month "));
+		
+		$last_day = date('j', mktime(0, 0, 0, $month + 1, 0, $year));
+		$calendar = array();
+		$j = 0;
+		
+		for ($i = 1; $i < $last_day + 1; $i++) {
+			$week = date('w', mktime(0, 0, 0, $month, $i, $year));
+			if ($i == 1) {
+				for ($s = 1; $s <= $week; $s++) {
+						$calendar[$j]['day'] = '';
+						$j++;
+				}
+			}
+		
+			$date = $year."-".$month."-".$i;
+			$datetime = new DateTime($date);
+			$business_week = array("日", "月", "火", "水", "木", "金", "土");
+			$w = (int)$datetime->format('w');
+		
+			if ($business_week[$w] != "火" && $business_week[$w] != "水") {
+				$dac = new DAC(Lib::connection(), "mysql", true);
+				$dac->setColumn("reservation_date");
+				$dac->setOption("reservation_date = '{$date}'");
+				$view = "reservation";
+				$dac->selectRows($view, $rows);
+				
+				switch (count($rows)) {
+					case 0:
+						$parts = "<span class=\"round\">〇</span>";
+						break;
+					case 1:
+						$parts = "<span class=\"triangle\">△</span>";
+						break;
+					case 2:
+						$parts = "<span class=\"cross\">×</span>";
+						break;
+				}
+			} else {
+				$parts = "<span>休</span>";
+			}
+		
+			$calendar[$j]['day'] = $i."<br>".$parts;
+			$j++;
+		
+			if ($i == $last_day) {
+				for ($e = 1; $e <= 6 - $week; $e++) {
+					$calendar[$j]['day'] = "";
+					$j++;
+				}
+			}
+		}
+		
+		$this->calendar["calendar"] = $calendar;
+		$this->calendar["year"] = $year;
+		$this->calendar["month"] = $month;
+	}
+	/**
+	 * ページロード時に実行します。
+	 */
+	public function default() {
+		$this->calendar();
+	}
+
+}
+/**
+ * フォーム要素とルールの連想配列
+ * 指定要素にフィルタールールと必須チェック及びセッション利用の有無を指定する
+ */
+
+/**
+ * ページインスタンス生成
+ * 実行パス、ルール連想配列及びページセッション名を指定する
+ */
+$page = new Page_Index(__DIR__, null, null, false);
+/**
+ * イベント発生時のコールバック関数、移動先及びセッション保存の有無をセットしload()を実行する
+ */
+$page->setEvent("default", null, array($page, "default"), "", true);
+
+/**
+ * クロスページポストの有無を設定する
+ */
+$page->canCrossPagePostBack = false;
+$page->load();

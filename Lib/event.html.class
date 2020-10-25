@@ -1,0 +1,321 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * イベントページクラス
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2020 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.200114
+ */
+namespace Lib;
+
+require_once("Conf.inc");
+require_once("Common/Page.class");
+require_once("Common/DAC.class");
+
+class Page_Event extends Page {
+	public $title;
+	public $events;
+	public $rules;
+	public $funcs;
+	/**
+	 * 制約設定表記を返す
+	 */
+	public function getPattern($row) {
+		switch ($row["pattern"]) {
+			case "1": return "[^" . str_replace(",", "", $row["pattern_check"]) . "]";
+			case "2": return $row["pattern_input"];
+			default: return Lib::filter()[$row["pattern"]];
+		}
+	}
+	/**
+	 * 変換設定表記を返す
+	 */
+	public function getKana($row) {
+		switch ($row["kana"]) {
+			case "1": return Lib::convertOption()[$row["kana_check"]];
+			case "2": return $row["kana_input"];
+			default: return Lib::convert()[$row["kana"]];
+		}
+	}
+	/**
+	 * 
+	 */
+	public function default() {
+		Lib::authPage($this);
+
+		// note: イベントの定義を獲得
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setColumn("ROWID");
+		$dac->setColumn("name");
+		$dac->setColumn("value");
+		$dac->setColumn("callback");
+		$dac->setColumn("move_to");
+		$dac->setColumn("visible");
+		$dac->setOption("t_page_ROWID = [0]", $_GET["page"]);
+		$dac->setOption("is_event = 1");
+		$dac->setOrder("name, value, ROWID");
+		if (!$dac->selectRows("t_event", $rows)) {
+			$_SESSION[DOMAIN]["Lib.page.page_list"]["errors"]["message"] = $dac->message;
+			$this->location("page_list.html");
+		}
+		$this->events = $rows;
+		// note: ユーザーfunctionを獲得
+		$dac->clear();
+		$dac->setColumn("ROWID");
+		$dac->setColumn("callback");
+		$dac->setColumn("comment");
+		$dac->setColumn("visible");
+		$dac->setOption("t_page_ROWID = [0]", $_GET["page"]);
+		$dac->setOption("is_event = 0");
+		$dac->setOrder("callback, ROWID");
+		if (!$dac->selectRows("t_event", $rows)) {
+			$_SESSION[DOMAIN]["Lib.page.page_list"]["errors"]["message"] = $dac->message; 
+			$this->location("page_list.html");
+		}
+		$this->funcs = $rows;
+		// note: ルールの定義を獲得
+		$dac->clear();
+		$dac->setColumn("ROWID");
+		$dac->setColumn("name");
+		$dac->setColumn("len");
+		$dac->setColumn("pattern");
+		$dac->setColumn("pattern_check");
+		$dac->setColumn("pattern_input");
+		$dac->setColumn("kana");
+		$dac->setColumn("kana_input");
+		$dac->setColumn("kana_check");
+		$dac->setColumn("def");
+		$dac->setColumn("req");
+		$dac->setColumn("use_session");
+		$dac->setoption("t_page_ROWID = [0]", $_GET["page"]);
+		$dac->setOrder("name, ROWID");
+		if (!$dac->selectRows("t_rule", $rows)) {
+			$_SESSION[DOMAIN]["Lib.page.page_list"]["errors"]["message"] = $dac->message;
+			$this->location("page_list.html");
+		}
+		$this->rules = $rows;
+
+		// note: ポストバックデータがある場合はリターン
+		if ($this->values && $this->values["ROWID"] == $_GET["page"]) return true;
+		// note: ページ情報を獲得
+		$dac->clear();
+		$dac->setColumn("p.ROWID");
+		$dac->setColumn("p.tm_create");
+		$dac->setColumn("p.tm_update");
+		$dac->setColumn("p.page_name");
+		$dac->setColumn("p.dir");
+		$dac->setColumn("p.page_session");
+		$dac->setColumn("p.variable");
+		$dac->setColumn("p.cross_page");
+		// added: 171019
+		$dac->setColumn("p.post_files");
+		$dac->setColumn("p.user_id");
+		$dac->setColumn("p.is_locked");
+		$dac->setColumn("u.user_name");
+		$dac->setOption("p.ROWID = [0]", $_GET["page"]);
+		if (!$dac->selectRows("t_page As p Left Join t_user As u On (p.user_id = u.user_id)", $rows)) {
+			$_SESSION[DOMAIN]["Lib.page.page_list"]["errors"]["message"] = $dac->message;
+			$this->location("page_list.html");
+		}
+		if (!$rows[0]) {
+			$_SESSION[DOMAIN]["Lib.page.page_list"]["errors"]["message"] = "ページが存在しません。";
+			$this->location("page_list.html");
+		}
+		$this->values = Filter::getEntities($rows[0]);
+		$this->title = "{$rows[0]["page_name"]} Events - ";
+		unset($_SESSION[DOMAIN]["Lib.page.page_list"]["errors"]["message"]);
+		// note: event_edit及びrule_editページのロードエラーを表示する必要がある
+		//$this->errors = null;
+
+		return true;
+	}
+	/**
+	 * ページセッションを破棄しリストへ戻る
+	 */
+	public function back() {
+		Lib::authPage($this);
+		unset($_SESSION[DOMAIN][$this->sessionKey]);
+		unset($_SESSION[DOMAIN]["Lib.page.page_list"]);
+		return true;
+	}
+	/**
+	 * イベント情報を保存する
+	 */
+	public function save() {
+		Lib::authPage($this);
+		// Note: 使用するディレクティブ、ページセッション名の登録
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setData("tm_update", date("Y/m/d H:i:s"));
+		$dac->setData("user_id",  $_SESSION[DOMAIN]["Lib.user"]["user_id"]);
+		$dac->setData("dir", implode(",", $_POST["dir"]));
+		$dac->setData("page_session", $_POST["page_session"]);
+		$dac->setData("variable", $_POST["variable"]);
+		$dac->setData("cross_page", $_POST["cross_page"]);
+		// added: 171019
+		$dac->setData("post_files", $_POST["post_files"]);
+		$dac->setOption("ROWID = '[0]'", $_POST["ROWID"]);
+		if (!$dac->updateData("t_page", 1)) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = $dac->message;
+			return false;
+		}
+		// note: 保存後のページ情報を獲得
+		$dac->clear();
+		$dac->setColumn("*");
+		$dac->setOption("ROWID = '[0]'", $_POST["ROWID"]);
+		if (!$dac->selectRows("t_page", $rows)) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = $dac->message;
+			return false;
+		}
+		// note: ルール及びイベント設定を獲得
+		$dac->clear();
+		$dac->setColumn("*");
+		$dac->setOption("t_page_ROWID = [0]", $_POST["ROWID"]);
+		if (!$dac->selectRows("t_rule", $rowsRule)) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = $dac->message;
+			return false;
+		}
+		if (!$dac->selectRows("t_event", $rowsEvent)) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = $dac->message;
+			return false;
+		}
+
+		// added: 170609 t_event.callbackの重複をチェック
+		$dac->clear();
+		$dac->setColumn("callback, Count(callback) As cnt");
+		$dac->setGroup("callback");
+		$dac->setOption("t_page_ROWID = [0]", $_POST["ROWID"]);
+		$dac->setOption("visible = 1");
+		$dac->setHaving("cnt > 1");
+		if (!$dac->selectRows("t_event", $rowsDupulicate)) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = $dac->message;
+			return false;
+		}
+		
+		if ($rowsDupulicate) {
+			foreach ($rowsDupulicate as $rowDupulicate) $dupulicate[] = $rowDupulicate["callback"];
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = "メソッド " . implode(",", $dupulicate) . " が重複しています。<br>イベント定義とユーザーfunctionで有効な値が重複しないように再設定してください。";
+			return false;
+		}
+
+		// note: ページクラスファイル書き出し
+		$template = file_get_contents("tmp/pageclass.tmp");
+		$source = Filter::makePageClass($rows[0], $rowsRule, $rowsEvent, $template);
+
+		// modified: 170131 書き出し対象のURLを$rowsから獲得（セッションを使用していた為に誤ったファイルを書き出していた）
+		if (file_put_contents("../{$rows[0]["url"]}.class", $source) === false) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = "ファイルの書き出しに失敗しました。";
+			return false;
+		}
+		unset($_SESSION[DOMAIN][$this->sessionKey]);
+		return true;
+	}
+	// ajax: ページリストを出力する
+	public function pages() {
+		Lib::authPage($this);
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setColumn("ROWID");
+		$dac->setColumn("page_name");
+		$dac->setOrder("page_name");
+		if (!$dac->selectRows("t_page", $rows)) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = $dac->message;
+			return false;
+		}
+		$tag = "<table>";
+		$tag.= "	<thead>";
+		$tag.= "		<tr><td>Destination page</td</tr>";
+		$tag.= "	</head>";
+		$tag.= "	<tbody>";
+		foreach ($rows as $row) {
+			$tag.= "		<tr>";
+			$tag.= "			<td><label><input type=\"checkbox\" data-id=\"{$row["ROWID"]}\">";
+			$tag.= "　{$row["page_name"]}</label></td>";
+			$tag.= "		</tr>";
+		}
+		$tag.= "	</tbody>";
+		$tag.= "</table>";
+		echo $tag;
+		exit();
+	}
+	/**
+	 * イベントを複製する
+	 * modified: 190306 既存イベントを上書き
+	 */
+	public function copy() {
+		Lib::authPage($this);
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setColumn("*");
+		$dac->setOption("t_page_ROWID = [0]", $_POST["ROWID"], $_POST["callback"]);
+		$dac->setOption("callback = [0]", $_POST["callback"]);
+		
+		if (!$dac->selectRows("t_event", $rows, 1)) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = $dac->message;
+			return false;
+		}
+		
+		foreach (explode(",", $_POST["pages"]) as $ROWID){
+			$dac->clear();
+			$dac->setOption("callback = [0]", $rows[0]["callback"]);
+			$dac->setOption("t_page_ROWID = [0]", $ROWID);
+			$dac->setColumn("ROWID");
+			$eventROWID = $dac->scalar("t_event", true);
+			
+			$dac->clear();
+			$dac->setDataArray($rows[0], array("ROWID", "t_page_ROWID"));
+
+			if (!$eventROWID) {
+				$dac->setData("t_page_ROWID", $ROWID);
+				if (!$dac->insertData("t_event")) {
+					$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = $dac->message;
+					return false;
+				}
+			} else {
+				$dac->setOption("ROWID = [0]", $eventROWID);
+				if (!$dac->updateData("t_event", 1)) {
+					$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = $dac->message;
+					return false;
+				}
+			}
+		}
+		unset($_SESSION[DOMAIN][$this->sessionKey]);
+		return true;
+	}
+}
+
+/**
+ * フォーム要素とルールの連想配列
+ * 指定要素にフィルタールールと必須チェック及びセッション利用の有無を指定する
+ */
+$form["ROWID"] = new Rule(9, "[^0-9]", "a", null, true, true);
+$form["page_name"] = new Rule(50, null, null, null, false, true);
+$form["tm_create"] = new Rule(20, "[^0-9/: ]", null, null, false, true);
+$form["tm_update"] = new Rule(20, "[^0-9/: ]", null, null, false, true);
+$form["user_name"] = new Rule(200, null, null, null, false, true);
+$form["user_id"] = new Rule(20, "[^0-9a-zA-Z\-_]", null, null, false, true);
+$form["is_locked"] = new Rule(1, "[^01]", null, null, false, true);
+
+$form["dir"] = new Rule(10, "[^a-zA-Z0-9_]", "a", null, false, true);
+$form["page_session"] = new Rule(50, "[^0-9a-z\-_./]", null, null, false, true);
+$form["variable"] = new Rule(100, "[^0-9a-zA-Z,_]", "a", null, false, true);
+$form["cross_page"] = new Rule(1, "[^01]", "a", null, false, true);
+// added: 171019
+$form["post_files"] = new Rule(1, "[^01]", "a", null, false, true);
+$form["pages"] = new Rule(2000, "[^0-9,]", null, null, false, false);
+$form["callback"] = new Rule(20, "[^0-9a-zA-Z\-_]", null, null, false, false);
+
+
+/**
+ * ページインスタンス生成
+ * 実行パス、ルール連想配列及びページセッション名を指定する
+ */
+$page = new Page_Event(__DIR__, $form, "Lib.page.event");
+/**
+ * イベント発生時のコールバック関数、移動先及びセッション保存の有無をセットしload()を実行する
+ */
+$page->setEvent("default", null, array($page, "default"), "", false);
+$page->setEvent("action", "back", array($page, "back"), "page_list.html", true);
+$page->setEvent("action", "save", array($page, "save"), "event.html?page={$_GET["page"]}", true);
+$page->setEvent("action", "pages", array($page, "pages"), "", false);
+$page->setEvent("action", "copy", array($page, "copy"), "event.html?page={$_GET["page"]}", true);
+$page->load();

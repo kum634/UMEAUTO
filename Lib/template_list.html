@@ -1,0 +1,74 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * テンプレートリストページ
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2019 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.191225
+ */
+require_once("template_list.html.class");
+?>
+<?php include("inc/header.inc"); ?>
+<style>
+table td span { color: #00c683; display: block; }
+table td:nth-child(3) { width: 160px; }
+table td:nth-child(4) { width: 80px; padding: 0 2px 0 10px; }
+section .content .add a { width: 70px; }
+</style>
+<section>
+	<div class="wrap clearfix">
+		<div id="menu">
+			<?php include("inc/menu.inc"); ?>
+		</div>
+		<script>
+			$(function() {
+				$("#menu .caption:eq(1) label").click();
+			});
+		</script>
+		<div class="content">
+			<article class="clearfix">
+				<?= ($page->errors["message"]) ? "<p class='error'>{$page->errors["message"]}</p>" : "" ?>
+				<h2>Templates</h2>
+				<div class="add">
+					<a href="template.html">Add</a>
+				</div>
+			</article>
+			<div class="table">
+				<table>
+					<thead>
+						<tr>
+							<td>Name</td>
+							<td>Type</td>
+							<td>Update date</td>
+							<td></td>
+						</tr>
+					</thead>
+					<tbody>
+						<?php
+						foreach($page->rows as $row) {
+							if ($row["file_name"]) {
+								if ($row["file_path"]) $path = "{$row["file_path"]}/{$row["file_name"]}.tmp";
+								else $path = "tmp/{$row["file_name"]}.tmp";
+							} else {
+								$path = "tmp/{$row["tl_type"]}_{$row["ROWID"] }.tmp";
+							}
+						?>
+						<tr>
+							<td>
+								<?= $row["tl_name"] ?>
+								<span><?= $path ?></span>
+							</td>
+							<td><?= Lib\Lib::template()["{$row["tl_type"]}"] ?></td>
+							<td><?= date("Y/m/d H:i", strtotime($row["tm_update"])) ?></td>
+							<td class="edit"><a href="template.html?ROWID=<?= $row["ROWID"] ?>">Edit</a></td>
+						</tr>
+						<?php } ?>
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+</section>
+<?php include("inc/footer.inc"); ?>

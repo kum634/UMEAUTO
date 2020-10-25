@@ -1,0 +1,138 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * イメージページクラス
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2017-2020 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.200419
+ */
+namespace Lib;
+
+require_once("Conf.inc");
+require_once("Common/Page.class");
+require_once("Common/DAC.class");
+require_once("Common/Image.class");
+
+class Page_Image extends Page {
+	public $title;
+	/**
+	 * 
+	 */
+	public function default(){
+		Lib::authPage($this);
+		$this->title = "Image Folder - ";
+		return true;
+	}
+	/**
+	 * 指定フォルダの画像をロードする
+	 */
+	public function loadFolder() {
+		Lib::authPage($this);
+		if (!$_POST["folder"]) die("FAILURE:必要な情報が送信されませんでした。");
+		$path=  "../image/{$_POST["folder"]}/";
+		$exts = array("png", "jpg", "jpeg", "gif");
+		$files = scandir($path);
+		foreach ($files as $file) {
+			if (!in_array(end(explode(".", $file)), $exts)) continue;
+			echo "<div data-name=\"{$file}\"><button></button><img src=\"{$path}{$file}\"><label>{$file}</label></div>";
+		}
+		exit();
+	}
+	/**
+	 * 画像をアップロードする
+	 */
+	public function upload() {
+		Lib::authPage($this);
+		if (!$_POST["folder"]) die("FAILURE:必要な情報が送信されませんでした。");
+		$path=  "../image/{$_POST["folder"]}/";
+		$exts = array("png", "jpg", "jpeg", "gif");
+
+		$this->saveFile("file", $path, $exts, $savename) or die("FAILURE:{$this->errors["upload"]}");
+		$scale = $_POST["mag"] / 100 ;
+		$dest["width"] = $_POST["width"];
+		$dest["height"] = $_POST["height"];
+		$color = $_POST["backgroundcolor"];
+		$trim["start_x"] = $_POST["start_x"];
+		$trim["start_y"] = $_POST["start_y"];
+		$trim["width"] = $_POST["end_x"];
+		$trim["height"] = $_POST["end_y"];
+		$processing = $_POST["processing"];
+		$effect = ($_POST["effect"]) ? true : false;
+		$level["CONTRAST"] = $_POST["CONTRAST"];
+		$level["SMOOTH"] = $_POST["SMOOTH"];
+		$level["BRIGHTNESS"] = $_POST["BRIGHTNESS"];
+		$level["COLORIZE"] = $_POST["COLORIZE"];
+		$level["PIXELATE"] = $_POST["PIXELATE"];
+		$level["PIXELATE2"] = $_POST["PIXELATE2"];
+		$image = new Image($savename);
+		$image->level = $level;
+		$image->blockSize = $_POST["PIXELATE"];
+		$image->pixelate = ($_POST["PIXELATE2"]) ? true : false;
+		$image->color = $_POST["COLORIZE"];
+		if ($_POST["effect"])	$image->effects = [$_POST["effect"]];
+		
+		switch ($processing) {
+		case "mag":
+			// modified: 190104 100%指定の場合はエフェクトのみ実行する
+			if ($scale != 1) $image->scaleImage($scale, $effect);
+			else if ($effect) $image->effectImage();
+			break;
+		case "resize":
+			$image->resizeImage($dest["width"], $dest["height"], $color, $effect);
+			break;
+		case "trimming":
+			$image->trimImage($trim["start_x"], $trim["start_y"], $trim["width"], $trim["height"], $effect);
+			break;
+		default:
+			$image->effectImage();
+			break;
+		}
+		if ($image->message) die("FAILURE:{$image->message}");
+		$this->loadFolder();
+	}
+	/**
+	 * 画像を削除する
+	 */
+	public function removeFile() {
+		Lib::authPage($this);
+		if (!$_POST["folder"] || !$_POST["file_name"]) die("FAILURE:必要な情報が送信されませんでした。");
+		$path=  "../image/{$_POST["folder"]}/{$_POST["file_name"]}";
+		
+		unlink($path) or die("FAILURE:ファイルの削除に失敗しました。");
+		$this->loadFolder();
+	}
+}
+/**
+ * フォーム要素とルールの連想配列
+ * 指定要素にフィルタールールと必須チェック及びセッション利用の有無を指定する
+ */
+$form["ROWID"] = new Rule(9, "[^0-9NEW]", "a", null, false, true);
+$form["title"] = new Rule(200, null, null, null, true, true);
+$form["tag"] = new Rule(100, "[<>&$'\"]", null, null, false, true);
+$form["tm_write"] = new Rule(20, "[^0-9\-]", null, null, false, true);
+$form["text1"] = new Rule(20000, "", null, null, false, true);
+$form["text2"] = new Rule(20000, "", null, null, false, true);
+$form["uri_image"] = new Rule(100, "[^0-9a-zA-Z.\-_/:?&%#]", "a", null, false, true);
+$form["uri_link"] = new Rule(100, "[^0-9a-zA-Z.\-_/:?&%#]", "a", null, false, true);
+$form["is_open"] = new Rule(1, "[^01]", null, null, false, true);
+
+$form["category"] = new Rule(3, "[^0-9]", null, null, false, false);
+$form["file_name"] = new Rule(200, "[^0-9a-zA-Z\-_.]", null, null, false, false);
+$form["COLORIZE"] = new Rule(20, "", null, null, false, false);
+$form["backgroundcolor"] = new Rule(20, "", null, null, false, false);
+
+/**
+ * ページインスタンス生成
+ * 実行パス、ルール連想配列及びページセッション名を指定する
+ */
+$page = new Page_Image(__DIR__, $form, "Lib.page.item", true);
+/**
+ * イベント発生時のコールバック関数、移動先及びセッション保存の有無をセットしload()を実行する
+ */
+$page->setEvent("default", null, array($page, "default"), "", false);
+$page->setEvent("action", "loadFolder", array($page, "loadFolder"), "", false);
+$page->setEvent("action", "upload", array($page, "upload"), "", false);
+$page->setEvent("action", "unlink", array($page, "removeFile"), "", false);
+$page->load();

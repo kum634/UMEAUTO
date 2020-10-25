@@ -1,0 +1,46 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ *
+ * @package    basepack
+ * @copyright  Copyright (c) 2019
+ * @version    1.0.20201013
+ * @framework  Lib Framework v3.1.180515
+ */
+require_once("{$_SERVER["DOCUMENT_ROOT"]}/Lib/Conf.inc");
+require_once("Common/Page.class");
+
+
+use Lib\{Page};
+
+class Page_Shop extends Page {
+	public $crumbs;
+
+	/**
+	 * ページロード時に実行します。
+	 */
+	public function default() {
+		$this->crumbs = "<li>会社案内</li>\n";
+	}
+
+}
+/**
+ * フォーム要素とルールの連想配列
+ * 指定要素にフィルタールールと必須チェック及びセッション利用の有無を指定する
+ */
+
+/**
+ * ページインスタンス生成
+ * 実行パス、ルール連想配列及びページセッション名を指定する
+ */
+$page = new Page_Shop(__DIR__, null, null, false);
+/**
+ * イベント発生時のコールバック関数、移動先及びセッション保存の有無をセットしload()を実行する
+ */
+$page->setEvent("default", null, array($page, "default"), "", true);
+
+/**
+ * クロスページポストの有無を設定する
+ */
+$page->canCrossPagePostBack = false;
+$page->load();

@@ -1,0 +1,40 @@
+<section class="calendar">
+  <h2>整備予約状況</h2>
+  <ul>
+    <li><a href="index.html?ym=<?= $page->calendar["lastmonth"] ?>"><</a></li>
+    <li><?= $page->calendar["year"] ?>年<?= $page->calendar["month"] ?>月</li>
+    <li><a href="index.html?ym=<?= $page->calendar["nextmonth"] ?>">></a></li>
+  </ul>
+  <br>
+  <table>
+    <tr>
+      <th>日</th>
+      <th>月</th>
+      <th>火</th>
+      <th>水</th>
+      <th>木</th>
+      <th>金</th>
+      <th>土</th>
+    </tr>
+    <tr>
+    <?php $cnt = 0; ?>
+    <?php foreach ($page->calendar["calendar"] as $key => $value): ?>
+      <td>
+      <?php $cnt++; ?>
+      <?= $value['day'] ?>
+      </td>
+    <?php if ($cnt == 7): ?>
+    </tr>
+    <tr>
+    <?php $cnt = 0; ?>
+    <?php endif; ?>
+    <?php endforeach; ?>
+    </tr>
+  </table>
+  <ul>
+    <li><span class="round">〇</span>&nbsp;空きあり</li>
+    <li><span class="triangle">△</span>&nbsp;一部空きあり</li>
+    <li><span class="cross">×</span>&nbsp;空きなし</li>
+    <li><span>休</span>&nbsp;休業日</li>
+  </ul>
+</section>

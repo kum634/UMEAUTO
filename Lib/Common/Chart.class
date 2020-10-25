@@ -1,0 +1,150 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * チャートクラス
+ *
+ * プロパティーアクセスは__get()__set()マジックメソッドによって制御される。
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2018-2019 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.191220
+ */
+namespace Lib;
+
+class Chart {
+	/**
+	 * @property-read string $message エラーメッセージ
+	 */
+	private $message;
+	/**
+	 * コンストラクタ
+	 */
+	public function __construct() {
+	}
+	/**
+	 * マジックメソッドゲッター
+	 *
+	 * @param string $name メンバ変数名
+	 */
+	public function __get(string $name) {
+		return $this->$name;
+	}
+	/**
+	 * マジックメソッドセッター
+	 *
+	 * @param string $name メンバ変数名
+	 * @param mixed $value メンバ変数値
+	 */
+	public function __set(string $name, $value) { }
+	/**
+	 * 引数の示す日付の範囲start-dateとend-dateをキーとした連想配列にして返す
+	 *
+	 * @param string $rangeString 日付の範囲をあらわす文字列
+	 * @return array start-dateとend-dateをキーとした連想配列
+	 */
+	public static function getRange(string $rangeString) {
+		switch ($rangeString) {
+			case "currentWeek": // 今週
+				$w = date("w");
+				$n = 6 - $w;
+				$range["start-date"] = date("Y-m-d", strtotime("-{$w} day"));
+				$range["end-date"] = date("Y-m-d", strtotime("+{$n} day"));
+				break; 
+			case "prevWeek": // 先週
+				$w = date("w") + 7;
+				$n = date("w") + 1;
+				$range["start-date"] = date("Y-m-d", strtotime("-{$w} day"));
+				$range["end-date"] = date("Y-m-d", strtotime("-{$n} day"));
+				break;
+			case "currentWeekRange": // 1週間前～当日
+				$range["start-date"] = date("Y-m-d", strtotime("-1 week", strtotime("+1 day")));
+				$range["end-date"] = date("Y-m-d");
+				break;
+			case "prevWeekRange": // 2週間前～1週間前
+				$range["start-date"] = date("Y-m-d", strtotime("-2 week", strtotime("+1 day")));
+				$range["end-date"] = date("Y-m-d", strtotime("-1 week"));
+				break;
+			case "currentMonth": // 当月
+				$t = date("t");
+				$range["start-date"] = date("Y-m-01");
+				$range["end-date"] = date("Y-m-{$t}");
+				break;
+			case "prevMonth": // 先月
+				$t = date("t", strtotime("-1 month"));
+				$range["start-date"] = date("Y-m-01", strtotime("-1 month"));
+				$range["end-date"] = date("Y-m-{$t}", strtotime("-1 month"));
+				break;
+			case "prevYearMonth": // 前年の同月
+				$t = date("t", strtotime("-1 year"));
+				$range["start-date"] = date("Y-m-01", strtotime("-1 year"));
+				$range["end-date"] = date("Y-m-{$t}", strtotime("-1 year"));
+				break;
+			case "currentMonthRange": // 1ヶ月前～当日
+				$range["start-date"] = date("Y-m-d", strtotime("-1 month", strtotime("+1 day")));
+				$range["end-date"] = date("Y-m-d");
+				break;
+			case "prevMonthRange": // 2ヶ月前～1ヶ月前
+				$range["start-date"] = date("Y-m-d", strtotime("-2 month", strtotime("+1 day")));
+				$range["end-date"] = date("Y-m-d", strtotime("-1 month"));
+				break;
+			case "current2MonthRange": // 2ヶ月前～当日
+				$range["start-date"] = date("Y-m-d", strtotime("-2 month", strtotime("+1 day")));
+				$range["end-date"] = date("Y-m-d");
+				break;
+			case "prev2MonthRange": // 4ヶ月前～2ヶ月前
+				$range["start-date"] = date("Y-m-d", strtotime("-4 month", strtotime("+1 day")));
+				$range["end-date"] = date("Y-m-d", strtotime("-2 month"));
+				break;
+			case "current3MonthRange": // 3ヶ月前～当日
+				$range["start-date"] = date("Y-m-d", strtotime("-3 month", strtotime("+1 day")));
+				$range["end-date"] = date("Y-m-d");
+				break;
+			case "prev3MonthRange": // 6ヶ月前～3ヶ月前
+				$range["start-date"] = date("Y-m-d", strtotime("-6 month", strtotime("+1 day")));
+				$range["end-date"] = date("Y-m-d", strtotime("-3 month"));
+				break;
+			default:
+				$range["start-date"] = date("Y-m-d");
+				$range["end-date"] = date("Y-m-d");
+				break;
+		}
+		return $range;
+	}
+	/**
+	 * サーバーから第二引数に関連するキーワードを獲得し第三引数にセットする
+	 *
+	 * @param string $server 接続先サーバー
+	 * @param array $words 基となるキーワード
+	 * @param array $array 関連キーワード参照
+	 * @return bool サーバーエラー時にエラーメッセージをセットし false を返す
+	 */
+	public function getKeywords(string $server, $words, &$array) {
+		$url = "{$server}request/keyword.xml";
+		try {
+			$ch = curl_init($url);
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+			curl_setopt($ch, CURLOPT_POST, true);
+			curl_setopt($ch, CURLOPT_USERPWD, "DEPLOY:a9Wrt54LbK");
+
+			$data["function"] = "getKeyword";
+			$data["words"] = implode(",", $words);
+			$data["CLID"] = CLID;
+			curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+			
+			$res = curl_exec($ch);
+			$status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+			
+			if ($status != 200) throw new Exception("SERVER FAIL: {$status}");
+			else if (strpos($res, "SERVER FAIL:") !== false) throw new Exception($res);
+
+			$array = json_decode($res, true);
+			curl_close($ch);
+			
+			return true;
+		} catch (\Exception $ex) {
+			$this->message = $ex->getMessage();
+			return false;
+		}
+	}
+}

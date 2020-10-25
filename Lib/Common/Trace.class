@@ -1,0 +1,62 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * トレーススタティッククラス
+ *
+ * トレース処理に関するスタティックメソッドのみを実装している。
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2020 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.200129
+ */
+namespace Lib;
+
+class Trace {
+	/**
+	 * ドメインセッションのトレースキーにトレース情報を追加する
+	 *
+	 * @param string $message メッセージ
+	 * @param string $value トレース内容
+	 * @param string $convert トレース箇所の__FILE__変数
+	 * @param string $default トレース箇所の__LINE__変数
+	 */
+	public static function set(string $message, $value = null, string $file = null, string $line = null) {
+		if (count($_SESSION[DOMAIN]["trace"]) >= TRACE) array_shift($_SESSION[DOMAIN]["trace"]);
+		$date = \DateTime::createFromFormat("U.u", sprintf("%6F", microtime(true)));
+		$trace["time"] = $date->format("Y/m/d H:i:s.v");
+		$trace["message"] = $message;
+		$trace["value"] = $value;
+		$trace["file"] = $file;
+		$trace["line"] = $line;
+		$_SESSION[DOMAIN]["trace"][] = $trace;
+	}
+	/**
+	 * ドメインセッションのトレースキーにバックトレース情報を追加する
+	 *
+	 * @param string $value トレース内容
+	 */
+	public static function setText(string $value) {
+		$date = \DateTime::createFromFormat("U.u", sprintf("%6F", microtime(true)));
+		$date->setTimeZone(new \DateTimeZone(date_default_timezone_get()));
+		$trace["time"] = $date->format("Y/m/d H:i:s.v");
+		$trace["value"] = $value;
+		foreach (debug_backtrace() as $key => $value) {
+			if ($key == 0) continue;
+
+			$path = end(explode("/", $value["file"]));
+			$args = [];
+			foreach ($value["args"] as $arg) {
+				if (is_null($arg)) $args[] = "null";
+				else if (is_object($arg)) $args[] = "object";
+				else if (!is_string($arg)) $args[] = $arg;
+				else $args[] = "\"{$arg}\"";
+			}
+			$args = implode(", ", $args);
+			$file[] = "{$path} Line {$value["line"]} {$value["class"]}{$value["type"]}{$value["function"]}({$args})";
+		}
+		$trace["message"] = array_pop($file);
+		$trace["file"] = implode("<br>", $file);
+		$_SESSION[DOMAIN]["trace"][] = $trace;
+	}
+}

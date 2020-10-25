@@ -1,0 +1,192 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * ルール編集ページ
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2020 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.200114
+ */
+require_once("rule_edit.html.class"); ?>
+<?php include("inc/header.inc"); ?>
+
+<style>
+section .content article #btn_lock:hover {
+	opacity: initial;
+	transition: initial;
+}
+section form dl dt { min-width: 160px; }
+#kana_check, #kana_input { display: none; }
+#pattern_check, #pattern_input { display: none; }
+</style>
+
+<section>
+	<div class="wrap clearfix">
+		<div id="menu">
+			<?php include("inc/menu.inc"); ?>
+		</div>
+		<script>
+		var isChange = false;
+		// note: ロック状態を確認する
+		function isLocked() {
+				var user = "<?= $_SESSION[DOMAIN]["Lib.user"]["user_id"] ?>";
+				if ($("#is_locked").val() == "1" && $("#user_id").val() != user) {
+					alert("このページは" + $("#user_name").val() + "によってロックされています。");
+					return false;
+				}
+				return true;
+		}
+		// note: 制約設定、変換設定の表示を切り替える
+		function toggleCheck(radio, val) {
+			switch (val) {
+				case "1" :
+					$(radio.parent().parent().data("check")).css("display", "flex");
+					$(radio.parent().parent().data("input")).css("display", "none");
+					break;
+				case "2" :
+					$(radio.parent().parent().data("check")).css("display", "none");
+					$(radio.parent().parent().data("input")).css("display", "flex");
+					break;
+				default :
+					$(radio.parent().parent().data("check")).css("display", "none");
+					$(radio.parent().parent().data("input")).css("display", "none");
+					break;
+			}
+		}
+		$(function() {
+			// note: エラー表示にクラスを追加する
+			$("form dl dd span").parent().parent().addClass("error");
+			// note: メニューのページリストプルダウンをクリックする
+			$("#menu .caption:eq(2) label").click();
+			// note: 制約設定、変換設定デフォルト表示
+			toggleCheck($("#pattern input"), "<?= $page->values["pattern"] ?>");
+			toggleCheck($("#kana input"), "<?= $page->values["kana"] ?>");
+			// note: 制約設定、変換設定クリックイベント
+			$("#pattern input, #kana input").on("click", function() {
+				toggleCheck($(this), $(this).val());
+			});
+			// note: フォーム要素の変更イベント
+			$("form").on("change", function() {
+				isChange = true;
+			});
+			// note: 戻るボタンクリックイベント
+			$("#btn_back").on("click", function() {
+				if (isChange && !confirm("保存せずに戻りますか？")) return false;
+				$("#action").val("back");
+			});
+			// note: 保存ボタンクリックイベント
+			$("#btn_save").on("click", function() {
+				if (!isLocked()) return false;
+				$("#action").val("save");
+			});
+			// note: 削除ボタンクリックイベント
+			$("#btn_delete").on("click", function() {
+				if ($("#ROWID").val() == "") return false;
+				if (!isLocked()) return false;
+				if (!confirm("削除してもよろしいですか？")) return false;
+				$("#action").val("delete");
+			});
+		});
+		</script>
+		<div class="content">
+			<article>
+				<?= ($page->errors["form"]) ? "<p>{$page->errors["form"]}</p>" : "" ?>
+				<h2><?= $page->page_name ?> Rule</h2>
+				<button id="btn_lock" class="<?= ($page->is_locked) ? "lock_on" : "lock_off" ?>" disabled><?= ($page->values["is_locked"]) ? "Unlock" : "Lock" ?></button>
+			</article>
+			<form method="post">
+				<dl>
+					<dt>name</dt>
+					<dd>
+						<input type="text" name="name" value="<?= $page->values["name"] ?>">
+						<?= ($page->errors["name"]) ? "<span>{$page->errors["name"]}</span>" : "" ?>
+					</dd> 
+				</dl>
+				<dl>
+					<dt>Length</dt>
+					<dd>
+						<input type="text" name="len" value="<?= $page->values["len"] ?>">
+						<?= ($page->errors["len"]) ? "<span>{$page->errors["len"]}</span>" : "" ?>
+					</dd>
+				</dl>
+				<dl>
+					<dt>Constraint</dt>
+					<dd id="pattern" data-check="#pattern_check" data-input="#pattern_input">
+						<?= Lib\Tag::getRadio("pattern", Lib\Lib::filter(), $page->values["pattern"]) ?>
+					</dd>
+				</dl>
+				<dl id="pattern_check">
+					<dt>Select constraints</dt>
+					<dd class="group">
+						<?= Lib\Tag::getCheckBox("pattern_check", Lib\Lib::filterOption(), (is_array($page->values["pattern_check"])) ? $page->values["pattern_check"] : explode(",", $page->values["pattern_check"])) ?>
+						<?= ($page->errors["pattern"]) ? "<span>No constraints selected.</span>" : "" ?>
+					</dd>
+				</dl>
+				<dl id="pattern_input">
+					<dt>Enter constraints</dt>
+					<dd>
+						<input type="text" name="pattern_input" value="<?= $page->values["pattern_input"] ?>">
+						<?= ($page->errors["pattern_input"]) ? "<span>{$page->errors["pattern_input"]}</span>" : "" ?></br>
+						<?= ($page->errors["pattern"]) ? "<span>No constraints entered.</span>" : "" ?><p>Example) [<>&$,'\"]</p>
+					</dd>
+				</dl>
+				<dl>
+					<dt>Convert</dt>
+					<dd id="kana" data-check="#kana_check" data-input="#kana_input">
+						<?= Lib\Tag::getRadio("kana", Lib\Lib::convert(), $page->values["kana"]) ?>
+					</dd>
+				</dl>
+				<dl id="kana_check">
+					<dt>Select convert option</dt>
+					<dd class="group">
+						<?= Lib\Tag::getRadio("kana_check", Lib\Lib::convertOption(), $page->values["kana_check"]) ?>
+						<?= ($page->errors["kana"]) ? "<span>No convert option selected.</span>" : "" ?>
+					</dd>
+				</dl>
+				<dl id="kana_input">
+					<dt>Enter convert option</dt>
+					<dd>
+						<input type="text" name="kana_input" value="<?= $page->values["kana_input"] ?>">
+						<?= ($page->errors["kana_input"]) ? "<span>{$page->errors["kana_input"]}</span>" : "" ?>
+						<?= ($page->errors["kana"]) ? "<span>No convert option enterd.</span>" : "" ?><p>*Enter the options for mb_convert_kana.</p>
+					</dd>
+				</dl>
+				<dl>
+					<dt>Default value</dt>
+					<dd>
+						<input type="text" name="def" value="<?= $page->values["def"] ?>">
+						<p>*This value is used when the result is an empty string.</p>
+					</dd>
+				</dl>
+				<dl>
+					<dt>Check required</dt>
+					<dd>
+						<?= Lib\Tag::getRadio("req", Lib\Lib::required(), $page->values["req"]) ?>
+					</dd>
+				</dl>
+				<dl>
+					<dt>Save session</dt>
+					<dd>
+						<?= Lib\Tag::getRadio("use_session", Lib\Lib::saveSession(), $page->values["use_session"]) ?>
+					</dd>
+				</dl>
+				<div class="clearfix">
+					<div class="left">
+						<button id="btn_back">Back</button>
+						<button id="btn_save">Save</button>
+					</div>
+					<div class="right">
+						<button id="btn_delete">Delete</button>
+					</div>
+					<input type="hidden" id="action" name="action">
+					<input type="hidden" id="ROWID" name="ROWID" value="<?= $page->values["ROWID"] ?>">
+					<input type="hidden" id="user_id" value="<?= $page->user_id ?>">
+					<input type="hidden" id="user_name" value="<?= $page->user_name ?>">
+					<input type="hidden" id="is_locked" value="<?= $page->is_locked ?>">
+				</div>
+			</form>
+		</div><!-- #content -->
+	</div><!-- #wrap -->
+</section>
+<?php include("inc/footer.inc"); ?>

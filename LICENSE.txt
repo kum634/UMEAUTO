@@ -1,0 +1,5 @@
+製品名：ウメオート
+製造元：umemoto kei
+製品バージョン：ウメオート Copyright (2020) umemoto kei
+フレームワーク：LIB PHP Framework Copyright (c) 2016 Barman Soft, Inc. All rights reserved.
+https://libframework.org/license.html

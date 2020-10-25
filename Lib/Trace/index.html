@@ -1,0 +1,106 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * トレースページ
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2018 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.1.180605
+ */
+require_once("index.html.class");
+?>
+<?php include("inc/header.inc"); ?>
+<style>
+div.wrap {
+	overflow: auto;
+}
+h2 {
+	margin-bottom: 20px;
+}
+#view_trace table td:nth-of-type(1) {
+	text-align: center;
+}
+#view_trace table td:nth-of-type(4) {
+	width: 60px;
+	text-align: center;
+}
+#view_trace table td button {
+	width: 20px;
+	height: 20px;
+}
+section form button {
+	margin-top: 20px;
+	margin-bottom: 40px;
+}
+#view_session table {
+	margin-top: 1px;
+}
+#view_session table th,
+#view_session table td {
+	border: 1px solid #ccc;
+}
+#view_session table th {
+	width: 10%;
+	word-break: break-all;
+}
+.wrap{
+	display:block;
+	padding: 20px;
+	flex-direction: column;
+}
+</style>
+<script>
+	var isBusy = false;
+	$(function() {
+		$(document).ajaxError(function(e, req){
+			console.log(dump(req.status, req.statusText));
+			isBusy = false;
+		});
+		$("#view_trace").on("click", "button", function() {
+			if (isBusy) return; else isBusy = true;
+			$.post(location.href,
+				{ action: "remove_trace", key: $(this).data("key") },
+				function(res) {
+					isBusy = false;
+					if (res.indexOf("FAILURE:") == 0) alert(res);
+					else $("#view_trace table").html(res);
+				}
+			);
+		});
+		$("form button").on("click", function() {
+			if (isBusy) return false; else isBusy = true;
+			$.post(location.href,
+				{ action: "reset_trace" },
+				function(res) {
+					isBusy = false;
+					if (res.indexOf("FAILURE:") == 0) alert(res);
+					else $("#view_trace table").html(res);
+				}
+			);
+			return false;
+		});
+	});
+</script>
+<section>
+	<div class="wrap clearfix">
+		<div id="view_trace">
+			<article>
+				<h2>Trace</h2>
+			</article>
+			<table>
+				<?= $page->getTraceTag() ?>
+			</table>
+		</div>
+		<form>
+			<button>Reset Trace</button>
+		</form>
+		<div id="view_session">
+			<article>
+				<h2>$_SESSION</h2>
+			</article>
+			<?= $page->getSessionTag() ?>
+		</div>
+	</div>
+</section>
+<?php include("inc/footer.inc"); ?>

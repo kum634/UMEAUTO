@@ -1,0 +1,80 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * Fixedリストページクラス
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2020 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.200419
+ */
+namespace Lib;
+
+require_once("Conf.inc");
+require_once("Common/Page.class");
+require_once("Common/DAC.class");
+
+class Page_Fixed_List extends Page {
+	public $title;
+	public $rows;
+	/**
+	 * 
+	 */
+	public function default() {
+		Lib::authPage($this);
+		
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setColumn("*");
+		$dac->setOrder("function, n_index");
+		if (!$dac->selectRows("t_fixed", $this->rows)) {
+			$this->errors["form"] = $dac->message;
+			return false;
+		}
+		$this->title = "Static Arrays";
+		return true;
+	}
+	/**
+	 * function名ごとにテーブルタグを出力する
+	 */
+	public function loadStaticArrays() {
+		$loadTable = function($function, $comment, &$tr) use (&$html) {
+			$html.= "<table>\n";
+			$html.= "	<tr>\n";
+			$html.= "		<td colspan=\"2\" class=\"edit\">\n";
+			$html.= "			<b>{$function}()</b> <small>{$comment}</small>\n";
+			$html.= "			<a href=\"fixed.html?function={$function}\">Edit</a>\n";
+			$html.= "		</td>\n";
+			$html.= "	</tr>\n";
+			$html.= "	<tr>\n";
+			$html.= "		<th>key</th>\n";
+			$html.= "		<th>value</th>\n";
+			$html.= "	</tr>\n";
+			$html.= $tr;
+			$html.= "</table>\n";
+			$tr = "";
+		};
+		foreach ($this->rows as $row) {
+			if ($row["function"] != $function) {
+				if ($tr) $loadTable($function, $comment, $tr);
+				$function = $row["function"];
+				$comment = $row["comment"];
+			}
+			$tr.= "	<tr>\n";
+			$tr.= "		<td>{$row["key"]}</th>\n";
+			$tr.= "		<td>{$row["value"]}</td>\n";
+			$tr.= "	</tr>\n";
+		}
+		if ($tr) $loadTable($function, $comment, $tr);
+		return $html;
+	}
+}
+/**
+ * ページインスタンス生成
+ * 実行パス、ルール連想配列及びページセッション名を指定する
+ */
+$page = new Page_Fixed_List(__DIR__, null, "Lib.page.fixed");
+/**
+ * イベント発生時のコールバック関数、移動先及びセッション保存の有無をセットしload()を実行する
+ */
+$page->setEvent("default", null, array($page, "default"), "", false);
+$page->load();

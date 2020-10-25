@@ -1,0 +1,201 @@
+<?php
+ /**
+ * 文字コード UTF-8N 改行コードLF
+ * PayPal通信クラス
+ *
+ * PayPal決済に関する動作を定義。
+ * プロパティーアクセスは__get()__set()マジックメソッドによって制御される。
+ * 公式に推奨しているSDKはインストールが必要になるためNVP/SOAP APIsを使用。
+ * （リファレンス）https://developer.paypal.com/docs/classic/payflow/express-checkout/sale/#the-express-checkout-basic-integration
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2019 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    LIB PHP Framework v3.2.191218
+ */
+namespace Lib;
+
+require_once("Common/Filter.class");
+require_once("Common/Trace.class");
+require_once("Common/DAC.class");
+require_once("Common/MailClass.class");
+
+class PayPal {
+	/**
+	 * @property-read array $config API認証情報配列
+	 * @property-read string $orderURL オーダー情報送信先URL
+	 * @property-read string $salesURL オーダー情報確認URL
+	 * @property-read string $message エラーメッセージ
+	 */
+	private $config;
+	private $orderURL;
+	private $salesURL;
+	private $message;
+	/**
+	 * コンストラクタ
+	 * @param array $config API認証情報
+	 */
+	public function __construct(array $config) {
+		$this->config = $config;
+
+		if (DOMAIN == "domain.bxi.libframework.work") {
+			$this->orderURL = "https://api-3t.sandbox.paypal.com/nvp";
+			$this->salesURL = "https://www.sandbox.paypal.com/cgi-bin/webscr";
+		} else {
+			$this->orderURL = "https://api-3t.paypal.com/nvp";
+			$this->salesURL = "https://www.paypal.com/cgi-bin/webscr";
+		}
+	}
+	/**
+	 * マジックメソッドゲッター
+	 *
+	 * @param string $name メンバ変数名
+	 */
+	public function __get(string $name) {
+		return $this->$name;
+	}
+	/**
+	 * マジックメソッドセッター
+	 *
+	 * @param string $name メンバ変数名
+	 * @param mixed $value メンバ変数値
+	 */
+	public function __set(string $name, $value) {	}
+	/**
+	 * SetExpressCeckoutを実行し、Tokenを取得
+	 * USER APIユーザー名
+	 * PWD APIパスワード
+	 * SIGNATURE API署名
+	 * METHOD SetExpressCheckout固定
+	 * VERSION 124固定
+	 * PAYMENTREQUEST_0_AMT 決済金額
+	 * PAYMENTREQUEST_0_CURRENCYCODE 通貨
+	 * PAYMENTREQUEST_0_PAYMENTACTION Sale=決済終了時に口座に入金される
+	 * cancelUrl キャンセル時のリダイレクト先
+	 * returnUrl 承認時のリダイレクト先
+	 * PAYMENTREQUEST_0_SHIPTONAME 配送名
+	 * PAYMENTREQUEST_0_SHIPTOCOUNTRYCODE 配送国
+	 * (注意）POSTデータをURLエンコードしないと500エラーになる
+	 */
+	public function request(string $amount, string $name, &$url) {
+		$data["USER"] = $this->config[0];
+		$data["PWD"] = $this->config[1];
+		$data["SIGNATURE"] = $this->config[2];
+		$data["METHOD"] = "SetExpressCheckout";
+		$data["VERSION"] = 124;
+		$data["PAYMENTREQUEST_0_AMT"] = $amount;
+		$data["PAYMENTREQUEST_0_CURRENCYCODE"] = "JPY";
+		$data["PAYMENTREQUEST_0_PAYMENTACTION"] = "Sale";
+		$data["cancelUrl"] = "https://". DOMAIN. "/shop/purchase_confirm.html";
+		$data["returnUrl"] = "https://". DOMAIN. "/shop/purchase_confirm.html";
+		$data["PAYMENTREQUEST_0_SHIPTONAME"] = $name;
+		$data["PAYMENTREQUEST_0_SHIPTOCOUNTRYCODE"] = "日本";
+
+		try {
+			$ch = curl_init($this->orderURL);
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+			curl_setopt($ch, CURLOPT_POST, true);
+			curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
+
+			$res = curl_exec($ch);
+			$status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+			if ($status != 200) throw new \Exception("決済サービスに接続できませんでした。: {$status} {$res}");
+
+			Trace::setText($res);
+/*
+TOKEN=EC%2d24160855KP8044848
+&TIMESTAMP=2019%2d02%2d13T06%3a19%3a56Z&CORRELATIONID=25327b1bd2c96
+&ACK=Success
+&VERSION=124
+&BUILD=51809251
+*/
+			$url = "{$this->salesURL}?cmd=_express-checkout&useraction=commit&token=";
+			$url.= substr($res, 6, 22);
+			return true;
+		} catch (\Exception $ex) {
+			$this->message = $ex->getMessage();
+			return false;
+		}
+	}
+	/**
+	 * DoExpressCheckoutPaymentを実行し、決済を完了する
+	 * （リダイレクトパラメータ）token=EC-5WT68376GG7907642&PayerID=P4XE3H2EFTEXG
+	 *
+	 * USER APIユーザー名
+	 * PWD APIパスワード
+	 * SIGNATURE API署名
+	 * METHOD DoExpressCheckoutPayment固定
+	 * VERSION 124固定
+	 * PAYMENTREQUEST_0_AMT 決済金額
+	 * PAYMENTREQUEST_0_CURRENCYCODE 通貨
+	 * PAYMENTREQUEST_0_PAYMENTACTION Sale=決済終了時に口座に入金される
+	 * TOKEN リダイレクトパラメータ値（常にセットされる）
+	 * PAYERID リダイレクトパラメータ値（承認時にセットされる）
+	 * (注意）POSTデータをURLエンコードしないと500エラーになる
+	 */
+	public function checkout(string $amount, string $token, string $payerID) {
+		$data["USER"] = $this->config[0];
+		$data["PWD"] = $this->config[1];
+		$data["SIGNATURE"] = $this->config[2];
+		$data["METHOD"] = "DoExpressCheckoutPayment";
+		$data["VERSION"] = 124;
+		$data["PAYMENTREQUEST_0_AMT"] = $amount;
+		$data["PAYMENTREQUEST_0_CURRENCYCODE"] = "JPY";
+		$data["PAYMENTREQUEST_0_PAYMENTACTION"] = "Sale";
+		$data["TOKEN"] = $token;
+		$data["PAYERID"] = $payerID;
+
+		try {
+			$ch = curl_init($this->orderURL);
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+			curl_setopt($ch, CURLOPT_POST, true);
+			curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
+
+			$res = curl_exec($ch);
+			$status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+			if ($status != 200) throw new \Exception("決済サービスに接続できませんでした。: {$status} {$res}");
+
+			Trace::setText($res);
+/*
+TOKEN=EC%2d7DM22230M80616416
+&SUCCESSPAGEREDIRECTREQUESTED=false
+&TIMESTAMP=2019%2d02%2d13T09%3a03%3a24Z
+&CORRELATIONID=af505c57cbba2
+&ACK=Success
+&VERSION=124
+&BUILD=51809251
+&INSURANCEOPTIONSELECTED=false
+&SHIPPINGOPTIONISDEFAULT=false
+&PAYMENTINFO_0_TRANSACTIONID=9R368370MU506544L
+&PAYMENTINFO_0_TRANSACTIONTYPE=expresscheckout
+&PAYMENTINFO_0_PAYMENTTYPE=instant
+&PAYMENTINFO_0_ORDERTIME=2019%2d02%2d13T09%3a03%3a23Z
+&PAYMENTINFO_0_AMT=13211
+&PAYMENTINFO_0_FEEAMT=516
+&PAYMENTINFO_0_TAXAMT=0
+&PAYMENTINFO_0_CURRENCYCODE=JPY
+&PAYMENTINFO_0_PAYMENTSTATUS=Completed
+&PAYMENTINFO_0_PENDINGREASON=None
+&PAYMENTINFO_0_REASONCODE=None
+&PAYMENTINFO_0_PROTECTIONELIGIBILITY=Eligible
+&PAYMENTINFO_0_PROTECTIONELIGIBILITYTYPE=ItemNotReceivedEligible%2cUnauthorizedPaymentEligible&PAYMENTINFO_0_SELLERPAYPALACCOUNTID=yoshiya%40barmansoft%2eco%2ejp
+&PAYMENTINFO_0_SECUREMERCHANTACCOUNTID=TYUBQCKZHJNLY
+&PAYMENTINFO_0_ERRORCODE=0
+&PAYMENTINFO_0_ACK=Success
+*/
+			$data = [];
+			foreach (explode("&", $res) as $param) {
+				list($key, $value) = explode("=", $param);
+				$data[$key] = $value;
+			}
+			if ($data["PAYMENTINFO_0_ERRORCODE"]) {
+				$this->message = "決済を完了できませんでした。： {$data["PAYMENTINFO_0_ERRORCODE"]}";
+				return false;
+			}
+			return true;
+		} catch (\Exception $ex) {
+			$this->message = $ex->getMessage();
+			return false;
+		}
+	}
+}

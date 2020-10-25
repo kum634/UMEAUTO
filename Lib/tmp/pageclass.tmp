@@ -1,0 +1,39 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ *
+ * @package    {#package}
+ * @copyright  {#copyright}
+ * @version    {#version}.{#date}
+ * @framework  Lib Framework v3.2.200826
+ */
+require_once("{#pagepath}Lib/Conf.inc");
+require_once("Common/Page.class");
+{#require}
+
+use Lib\{{#use_dir}};
+
+class Page_{#pagename} extends Page {
+{#variable}
+{#function}
+{#event}
+}
+/**
+ * フォーム要素とルールの連想配列
+ * 指定要素にフィルタールールと必須チェック及びセッション利用の有無を指定する
+ */
+{#rule}
+/**
+ * ページインスタンス生成
+ * 実行パス、ルール連想配列及びページセッション名を指定する
+ */
+$page = new Page_{#pagename}(__DIR__, {#form}, {#sessionKey}, {#post_files});
+/**
+ * イベント発生時のコールバック関数、移動先及びセッション保存の有無をセットしload()を実行する
+ */
+{#setEvent}
+/**
+ * クロスページポストの有無を設定する
+ */
+{#crossPage}
+$page->load();

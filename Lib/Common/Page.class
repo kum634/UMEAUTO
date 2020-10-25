@@ -1,0 +1,421 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * ページ基底クラス
+ *
+ * プロパティーアクセスは__get()__set()マジックメソッドによって制御される。
+ * このクラスの継承ページクラスは__construct()によってフィルター処理及びセッション値のHTMLエンティティ化が実行される。
+ * 既定のフィルター処理を変更し、任意の文字列を受け取りたい場合は継承ページクラスのインスタンス生成時にキーとなるデータ
+ * 名とルールオブジェクトの連想配列を渡す必要がある。
+ * また、継承ページクラスでsetEvent()にデータ名と値及びコールバックメソッドを渡すことにより、ユーザーアクションに対する
+ * 動作を定義できる。
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2019 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.191220
+ */
+namespace Lib;
+
+require_once("Common/Filter.class");
+require_once("Common/Rule.class");
+require_once("Common/Event.class");
+require_once("Common/Lib.class");
+require_once("Common/Fixed.class");
+require_once("Common/Tag.class");
+require_once("Common/Trace.class");
+
+class Page {
+	/**
+	 * @var array $events load()で処理するイベントオブジェクト配列
+	 */
+	private $events;
+	/**
+	 * @property-read string $node コンストラクタでページクラスの物理相対パスが設定される
+	 * @property-read string $path コンストラクタでアクセスURLの相対パスが設定される
+	 * @property-read string $sessionKey 一時保存するポストデータのセッション配列添字
+	 * @property-read array $form ポストパラメータとフィルタールールの連想配列
+	 * @property-read array $values ページセッションに一時保存されたポストデータの連想配列
+	 * @property-read array $errros ページセッションに一時保存されたポストエラーの連想配列
+	 */
+	private $node;
+	private $path;
+	private $sessionKey;
+	private $form;
+	protected $values;
+	protected $errors;
+	/**
+	 * @property bool $canCrossPagePostBack 他ページからのポストを許可する場合はtrueにする
+	 * @property bool $canPostFiles ファイルポストを許可する場合はコンストラクタにてtrueにする
+	 */
+	private $canCrossPagePostBack;
+	private $canPostFiles;
+	/**
+	 * コンストラクタ
+	 * 
+	 * modified: 171115 $this->path をリクエストファイルからの相対パスに変更（ページクラスが同一階層にある状況ではこの変更による影響はない）
+	 * modified: 171115 $this->node を追加しページクラスの物理相対パスを設定
+	 * @param string $path 継承ページクラスの定数__DIR__
+	 * @param array $form ポストパラメータとフィルタールールの連想配列
+	 * @param string $sessionKey 一時保存するポストデータのセッション配列添字
+	 * @param bool $canPostFiles ファイルポストを許可する場合はtrueにする
+	 */
+	public function __construct(string $path, $form = null, $sessionKey = null, $canPostFiles = false) {
+		// note: メンバ変数を初期化
+		$this->node = $this->getPath($path);
+		$this->path = $this->getRequestPath();
+		$this->form = $form;
+		$this->sessionKey = $sessionKey;
+		$this->values = array();
+		$this->errors = array();
+
+		// note: HTTPリクエストデータにフィルターを適用
+		$this->filter($_REQUEST);
+		$this->filter($_POST);
+		$this->filter($_GET);
+		$this->filter($_COOKIE);
+		if (!$canPostFiles) $_FILES = null;
+		else $this->canPostFiles = true;
+
+		// note: 既にセッションデータがある場合メンバ変数に展開
+		if ($_SESSION[DOMAIN][$sessionKey]["values"]) {
+			foreach ($_SESSION[DOMAIN][$sessionKey]["values"] as $k => $v) {
+				if (is_bool($v)) $this->values[$k] = $v;
+				else $this->values[$k] = Filter::getEntities($v);
+			}
+		}
+		$this->errors = $_SESSION[DOMAIN][$sessionKey]["errors"];
+	}
+	/**
+	 * マジックメソッドゲッター
+	 *
+	 * @param string $name メンバ変数名
+	 */
+	public function __get(string $name) {
+		if ($name == "events") return null;
+		else return $this->$name;
+	}
+	/**
+	 * マジックメソッドセッター
+	 *
+	 * @param string $name メンバ変数名
+	 * @param mixed $value メンバ変数値
+	 */
+	public function __set(string $name, $value) {
+		if ($name == "canCrossPagePostBack" && is_bool($value)) $this->$name = $value;
+	}
+	/**
+	 * イベントセッター
+	 *
+	 * @param string $name ポストパラメータ名
+	 * @param string $value ポストパラメータ値
+	 * @param callable $func 継承ページクラスインスタンスとメソッド名の配列
+	 * @param string $move コールバック結果がtrueの場合の移動先URL（defaultイベントの場合のみfalseの場合の移動先となる）
+	 * @param bool $useSession ポストデータをページセッションに保存する場合はtrueにする
+	 */
+	public function setEvent(string $name, string $value = null, callable $func = null, string $move, bool $useSession) {
+		$this->events[] = new Event($name, $value, $func, $move, $useSession);
+	}
+	/**
+	 * 追加したイベントオブジェクトを処理しポストバックリダイレクトを実行する
+	 */
+	public function load() {
+		foreach ($this->events as $e) {
+			if ($e->name === "default") {
+				$default = $e;
+				continue;
+			}
+			if ($_POST[$e->name] == $e->value) {
+				// note: クロスページポストを拒否
+				if ($this->isCrossPagePostBack()) {
+					Trace::set("クロスページポストを拒否しました。", $_SERVER["HTTP_REFERER"], __FILE__, __LINE__);
+					header("HTTP/1.0 401 Unauthorized");
+					exit();
+				}
+				// note:  受け取りたいポストデータをセッションに保存
+				if ($e->useSession) $hasError = $this->saveSession();
+
+				// note: コールバックが設定されている場合は成功時のみ遷移先に移動
+				// modified: 170126 移動先が未設定の場合は移動しない
+				if (!is_null($e->func)) {
+					if (call_user_func($e->func) === true && !$hasError && $e->move) {
+						header("Location: {$e->move}");
+						exit();
+					}
+				} else if (!$hasError && $e->move) {
+					header("Location: {$e->move}");
+					exit();
+				}
+			}
+		}
+		// note: ポストバックリダイレクト
+		if (count($_POST)) {
+			header("Location: ". Filter::getRequestURL(Filter::getQueryString()));
+			exit();
+		}
+		// note: ページロード時のデフォルト処理
+		// defaultイベントが追加されている場合はコールバックを実行
+		// modified: 170126 ループ回避時はメッセージを出力
+		if (isset($default) && !is_null($default->func)) {
+			if (call_user_func($default->func) === false) {
+				if ($default->move === Filter::getRequestPage()) {
+					echo "デフォルトイベントのループを回避しました。移動先には別のページを指定してください。";
+					exit();
+				} else if ($default->move) {
+					header("Location: {$default->move}");
+					exit();
+				}
+			}
+		}
+	}
+	/**
+	 * 指定したURLへ遷移する
+	 *
+	 * @param string $url 遷移先URL
+	 */
+	public function location(string $url) {
+		header("Location: {$url}");
+		exit();
+	}
+	/**
+	 * added: 170821 AJAXアクセスに対する応答データ配列をJSON形式の文字列で出力し終了する
+	 *
+	 * @param mixed $response 応答データ text にセットする文字列または任意の応答データ配列
+	 * @param bool $suceed trueの場合、応答データ status にSUCCEED をセットします、false の場合は応答データ status に FAILURE をセットします。
+	 */
+	public function response($response, $succeed) {
+		if (is_array($response)) {
+			$response["status"] = ($succeed) ? "SUCCEED" : "FAILURE";
+			echo json_encode($response);
+			exit();
+		} else {
+			$array["status"] = ($succeed) ? "SUCCEED" : "FAILURE";
+			$array["text"] = $response;
+			echo json_encode($array);
+			exit();
+		}
+	}
+	/**
+	 * added: 180527 テキストデータをダウンロードする
+	 * modified: 190802 出力前にバッファをクリア
+	 *
+	 * @param string $data ダウンロードテキスト
+	 * @param string $name ダウンロードファイル名
+	 * @param string $encode ダウンロードテキストの文字コード
+	 */
+	public function download(string $data, string $name, string $encode = "SJIS-win") {
+		header("Content-Type: application/octet-stream");
+		header("Content-Disposition: attachment; filename={$name}");
+
+		ob_end_clean();
+		mb_convert_variables($encode, "UTF-8", $data);
+		echo $data;
+		exit();
+	}
+	/**
+	 * __DIR_からROOT_PATHへの相対パスを返す
+	 *
+	 * @param string $path 継承クラスの定数__DIR__
+	 * @return string 相対パス
+	 */
+	private function getPath(string $path) : string {
+		$path = str_replace(ROOT_PATH, "", $path);
+
+		if ($path == "") return "";
+		else return str_repeat("../", substr_count($path, "/"));
+	}
+	/**
+	 * リクエストファイルからドキュメントルートへの相対パスを返す
+	 * getPath()ではページクラスの物理パスからの相対パスを返すのに対して、
+	 * このメソッドではページクラスの読み込み先であるリクエストファイルからの相対パスを返している
+	 *
+	 * @return string 相対パス
+	 */
+	private function getRequestPath() : string {
+		$path = ltrim($_SERVER["SCRIPT_NAME"], "/");
+		return str_repeat("../", substr_count($path, "/"));
+	}
+	/**
+	 * HTTPリクエストデータにフィルターを適用する
+	 *
+	 * @param array &$request HTTPリクエストデータ（$_POST $_GET $_REQUEST $_COOKIE）
+	 */
+	private function filter(&$request) {
+		foreach ($request as $k => $v) {
+			if ($this->form[$k] === true) {
+				continue;
+			} if (is_object($this->form[$k]) && get_class($this->form[$k]) == "Lib\Rule") {
+				$r = $this->form[$k];
+				if (is_array($request[$k])) Filter::setArray($request[$k], $r->length, $r->pattern, $r->convert, $r->default);
+				else Filter::set($request[$k], $r->length, $r->pattern, $r->convert, $r->default);
+			} else {
+				if (is_array($request[$k])) Filter::setArray($request[$k]);
+				else Filter::set($request[$k]);
+			}
+		}
+	}
+	/**
+	 * HTTPリファラーからクロスページポストを判定する
+	 *
+	 * @return bool クロスページポストの場合はtrueを返す
+	 */
+	private function isCrossPagePostBack() {
+		if ($this->canCrossPagePostBack) return false;
+
+		$refer = explode("?", $_SERVER["HTTP_REFERER"]);
+		$refer = (Filter::hasPageName($refer[0])) ? $refer[0] : "{$refer[0]}index.html";
+
+		$request = Filter::getRequestURL();
+		$request = (Filter::hasPageName($request)) ? $request : "{$request}index.html";
+
+		if ($refer == $request) return false;
+		else return true;
+	}
+	/**
+	 * HTTPリファラーホストを判定する
+	 *
+	 * @param string $host 判定対象のホスト名
+	 * @return bool HTTPリファラーホストが$hostを含む場合はtrueを返す
+	 */
+	public function isRefererHost($host) {
+		$url = $_SERVER["HTTP_REFERER"];
+		$url = parse_url($url);
+		return (strpos($url["host"], $host) !== false);
+	}
+	/**
+	 * フィルタールールによってポストデータをページセッションに保存する
+	 *
+	 * @return bool ルールの適用結果エラーがある場合はtrueを返す
+	 */
+	private function saveSession() {
+		foreach ($this->form as $k => $v) {
+			if (is_bool($v)) {
+				$values[$k] = $_POST[$k];
+			} else if (is_object($v) && get_class($v) == "Lib\Rule") {
+				if ($v->useSession) $values[$k] = $_POST[$k];
+				if ($v->isRequired && (!isset($_POST[$k]) || $_POST[$k] == "")) $errors[$k] = Lib::error()["required"];
+			}
+		}
+		// modified: 170126 セッションを上書き後、メンバ変数も上書き
+		// modified; 170905 エラーのみ存在する場合もセッションとメンバ変数を上書き（Ajax アクセスでは必須チェックのみ行う）
+		// modified: 191010 バリューとエラーそれぞれnullの場合にセッションをクリア
+		if (isset($this->sessionKey)) {
+			if (!isset($values)) {
+				unset($_SESSION[DOMAIN][$this->sessionKey]["values"]);
+				$this->values = null;
+			} else {
+				$_SESSION[DOMAIN][$this->sessionKey]["values"] = $values;
+				$this->values = $_SESSION[DOMAIN][$this->sessionKey]["values"];
+			}
+			if (!isset($errors)) {
+				unset($_SESSION[DOMAIN][$this->sessionKey]["errors"]);
+				$this->errors = null;
+			} else {
+				$_SESSION[DOMAIN][$this->sessionKey]["errors"] = $errors;
+				$this->errors = $_SESSION[DOMAIN][$this->sessionKey]["errors"];
+			}
+		}
+		return (isset($errors));
+	}
+	/**
+	 * added: 170126 ページセッションの値をメンバ変数$this->values及び$this->errorsの値に上書きする
+	 * modified: 191010 バリューとエラーそれぞれnullの場合にセッションをクリア
+	 */
+	public function updateSession() {
+		if ($this->values == null) unset($_SESSION[DOMAIN][$this->sessionKey]["values"]);
+		else $_SESSION[DOMAIN][$this->sessionKey]["values"] = $this->values;
+		if ($this->errors == null) unset($_SESSION[DOMAIN][$this->sessionKey]["errors"]);
+		else $_SESSION[DOMAIN][$this->sessionKey]["errors"] = $this->errors;
+	}
+	/**
+	 * $_FILESグローバルのキーを指定してアップロードファイルを保存する
+	 * modified: 190802 マイムタイプ検証
+	 *
+	 * @param string $key 送信フォームのname属性
+	 * @param string $path ファイルの保存先
+	 * @param array $exts 保存を許可する拡張子配列
+	 * @param string $filename 保存ファイル名をセットする参照変数
+	 * @param array $mimeTypes 検証する拡張子とマイムタイプの連想配列
+	 * @return bool アップロードファイルの保存に成功した場合にtrueを返す
+	 */
+	public function saveFile(string $key, string $path, array $exts, string &$filename = null, array $mimeTypes = null) {
+		if (!$this->canPostFiles) {
+			$this->errors["upload"] = "ファイルポストは許可されていません。";
+			return false;
+		}
+		if (is_null($_FILES[$key])) {
+			$this->errors["upload"] = "指定のファイルは送信されませんでした。";
+			return false;
+		}
+		if ($_FILES[$key]["error"] != UPLOAD_ERR_OK) {
+			$this->errors["upload"] = "エラー{$_FILES[$key]["error"]}: アップロードは失敗しました。";
+			return false;
+		}
+		
+		$ss = explode(".", $_FILES[$key]["name"]);
+		for ($n = 0; $n < count($ss) - 1; $n++) $name[] = $ss[$n];
+		$name = implode(".", $name);
+		$ext = $ss[count($ss) -1];
+		$name = Filter::get($name, 200, "[^0-9a-zA-Z\-_.]", "a");
+		$ext = strtolower($ext);
+		
+		if (!in_array($ext, $exts)) {
+			$this->errors["upload"] = "送信された形式のファイルは保存できません。";
+			return false;
+		}
+		// note: マイムタイプ検証
+		if ($mimeTypes && mime_content_type($_FILES[$key]["tmp_name"]) != $mimeTypes[$ext]) {
+			$this->errors["upload"] = "ファイル形式の検証の結果、不正なファイルと判断されました。";
+			return false;
+		}
+		
+		$name = ($name) ? "{$name}.{$ext}" : ceil(microtime(true) * 1000) . ".{$ext}";
+		if (!is_dir($path) && !mkdir($path, 0755, true)) {
+			$this->errors["upload"] = "ファイルの保存先を作成できませんでした。";
+			return false;
+		}
+		if (!move_uploaded_file($_FILES[$key]["tmp_name"], "{$path}{$name}")) {
+			$this->errors["upload"] = "アップロードファイルの保存に失敗しました。";
+			return false;
+		}
+		$filename = "{$path}{$name}";
+		return true;
+	}
+		/**
+	 * $_FILESグローバルのキーを指定してアップロードファイルを文字列に読み込みます
+	 *
+	 * @param string $key 送信フォームのname属性
+	 * @param array $exts 保存を許可する拡張子配列
+	 * @param string $text 読み込んだ文字列をセットする参照変数
+	 * @return bool アップロードファイルの保存に成功した場合にtrueを返す
+	 */
+	public function loadTempFile(string $key, array $exts, string &$text = null) {
+		if (!$this->canPostFiles) {
+			$this->errors["upload"] = "ファイルポストは許可されていません。";
+			return false;
+		}
+		if (is_null($_FILES[$key])) {
+			$this->errors["upload"] = "指定のファイルは送信されませんでした。";
+			return false;
+		}
+		if ($_FILES[$key]["error"] != UPLOAD_ERR_OK) {
+			$this->errors["upload"] = "エラー{$_FILES[$key]["error"]}: アップロードは失敗しました。";
+			return false;
+		}
+		
+		$ss = explode(".", $_FILES[$key]["name"]);
+		for ($n = 0; $n < count($ss) - 1; $n++) $name[] = $ss[$n];
+		$name = implode(".", $name);
+		$ext = $ss[count($ss) -1];
+		$name = Filter::get($name, 200, "[^0-9a-zA-Z\-_.]", "a");
+		$ext = strtolower($ext);
+		
+		if (!in_array($ext, $exts)) {
+			$this->errors["upload"] = "送信された形式のファイルは許可されていません。";
+			return false;
+		}
+		$text = file_get_contents($_FILES[$key]["tmp_name"]);
+		if ($text === false) return false;
+		else return true;
+	}
+}

@@ -1,0 +1,64 @@
+<?php 
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * ユーザーリストページ
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-20198 Barman Soft, Inc.
+ * @license    namespace Lib; The Clear BSD License
+ * @version    Lib Framework v3.2.191225
+ */
+require_once("user_list.html.class");
+?>
+<?php include("inc/header.inc"); ?>
+<style>
+table td:nth-child(3) { width: 160px; }
+table td:nth-child(4) { width: 80px; padding: 0 2px 0 10px; }
+section .content .add a { width: 70px; }
+</style>
+<section>
+	<div class="wrap clearfix">
+		<div id="menu">
+			<?php include("inc/menu.inc"); ?>
+		</div>
+		<script>
+		$(function() {
+			$("#menu .caption:eq(0) label").click();
+		});
+		</script>
+		<div class="content">
+			<article>
+				<?= ($page->errors["list"]) ? "<p>{$page->errors["list"]}</p>" : "" ?>
+			</article>
+			<article class="clearfix">
+				<h2>Users</h2>
+				<div class="add">
+					<a href="user.html?ROWID=NEW">Add</a>
+				</div>
+			</article>
+			<div class="table">
+				<table>
+					<thead>
+						<tr>
+							<td>ID</td>
+							<td>User</td>
+							<td>Developer</td>
+							<td></td>
+						</tr>
+					</thead>
+					<tbody>
+						<?php foreach($page->rows as $row) { ?>
+						<tr>
+							<td><?= $row["user_id"] ?></td>
+							<td><?= $row["user_name"] ?></td>
+							<td class="mk"><?= ($row["is_developer"]) ? "●" : "" ?></td>
+							<td class="edit"><a href="user.html?ROWID=<?= $row["ROWID"] ?>">Edit</a></td>
+						</tr>
+						<?php } ?>
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+</section>
+<?php include("inc/footer.inc"); ?>

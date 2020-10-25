@@ -1,0 +1,142 @@
+<?php
+ /**
+ * 文字コード UTF-8N 改行コードLF
+ * イプシロン通信クラス
+ *
+ * イプシロン決済に関する動作を定義。
+ * プロパティーアクセスは__get()__set()マジックメソッドによって制御される。 
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2018-2019 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    LIB PHP Framework v3.2.191218
+ */
+namespace Lib;
+
+require_once("Common/Filter.class");
+require_once("Common/DAC.class");
+require_once("Common/MailClass.class");
+
+class Epsilon {
+	/**
+	 * @property-read string $contract_code 契約コード
+	 * @property-read string $orderURL オーダー情報送信先URL
+	 * @property-read string $salesURL オーダー情報確認URL
+	 * @property-read string $message エラーメッセージ
+	 */
+	private $contract_code;
+	private $orderURL;
+	private $salesURL;
+	private $message;
+	/**
+	 * コンストラクタ
+	 * @param Lib\Page $page アクセスページインスタンス
+	 * @param bool $isTest
+	 */
+	public function __construct($contract_code) {
+		$this->contract_code = $contract_code;
+
+		if (DOMAIN == "domain.bxi.libframework.work") {
+			$this->orderURL = "https://beta.epsilon.jp/cgi-bin/order/receive_order3.cgi";
+			$this->salesURL = "https://beta.epsilon.jp/cgi-bin/order/getsales2.cgi";
+		} else {
+			$this->orderURL = "https://secure.epsilon.jp/cgi-bin/order/receive_order3.cgi";
+			$this->salesURL = "https://secure.epsilon.jp/cgi-bin/order/getsales2.cgi";
+		}
+	}
+	/**
+	 * マジックメソッドゲッター
+	 *
+	 * @param string $name メンバ変数名
+	 */
+	public function __get(string $name) {
+		return $this->$name;
+	}
+	/**
+	 * マジックメソッドセッター
+	 *
+	 * @param string $name メンバ変数名
+	 * @param mixed $value メンバ変数値
+	 */
+	public function __set(string $name, $value) {	}
+	/**
+	 * クレジットカード、コンビニリンク決済情報を送信する
+	 * contract_code		1.契約コード
+	 * user_id					2.ユーザーID
+	 * user_name				3.ユーザー氏名
+	 * user_mail_add		4.メールアドレス
+	 * item_code				5.商品コード
+	 * item_name				6.商品名
+	 * order_number			7.オーダー番号
+	 * st_code					8.決済区分（11000-0000-00000 | 00100-0000-00000）
+	 * mission_code			9.課金区分（1=１回課金）
+	 * item_price				10.価格
+	 * process_code			11.処理区分（1=初回課金）
+	 * xml							14.応答形式（1=XML形式）
+	 * version					31.CGIバージョン（2=UTF8）
+	 */
+	public function request(array $data, string $type, &$redirectURL) {
+		$data["contract_code"] = $this->contract_code;
+		$data["st_code"] = ($type == "conv") ? "00100-0000-00000-00000-00000-00000-00000" : "10000-0000-00000-00000-00000-00000-00000";
+		$data["mission_code"] = "1";
+		$data["process_code"] = "1";
+		$data["xml"] = "1";
+		$data["version"]= "2";
+		$data["memo1"] = md5(CLID);
+		$data["memo2"] = md5(DOMAIN);
+		
+		try {
+			$ch = curl_init($this->orderURL);
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+			curl_setopt($ch, CURLOPT_POST, true);
+			curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+
+			$res = curl_exec($ch);
+			$status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+			if ($status != 200) throw new \Exception("決済サービスに接続できませんでした。: {$status}");
+
+			$xml = new \SimpleXMLElement($res);
+			$results = json_decode(json_encode($xml), true);
+			$attrs = array();
+			foreach ($results["result"] as $result) $attrs = array_merge($attrs, $result["@attributes"]);
+			if (!$attrs["result"]) throw new \Exception(urldecode($attrs["err_detail"]). " ({$attrs["err_code"]})");
+			
+			$redirectURL = urldecode($attrs["redirect"]);
+			return true;
+		} catch (\Exception $ex) {
+			$this->message = $ex->getMessage();
+			return false;
+		}
+	}
+	/**
+	 * 入金状態を確認する
+	 * 
+	 */
+	public function getStatus($orderNumber, &$status) {
+		$data["contract_code"] = $this->contract_code;
+		$data["order_number"] = $orderNumber;
+
+		try {
+			$ch = curl_init($this->salesURL);
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+			curl_setopt($ch, CURLOPT_POST, true);
+			curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+
+			$res = curl_exec($ch);
+			$status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+			if ($status != 200) throw new \Exception("決済サービスに接続できませんでした。: {$status}");
+
+			$xml = new \SimpleXMLElement($res);
+			$results = json_decode(json_encode($xml), true);
+			$attrs = array();
+			foreach ($results["result"] as $result) $attrs = array_merge($attrs, $result["@attributes"]);
+			if (!$attrs) throw new \Exception("決済情報を取得できませんでした。<br>決済設定を確認してください。");
+			
+			$status = urldecode($attrs["state"]);
+			return true;
+		} catch (\Exception $ex) {
+			$this->message = $ex->getMessage();
+			return false;
+		}
+	}
+}

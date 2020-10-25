@@ -1,0 +1,141 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * ノートリストページ
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2020 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.200114
+ */
+require_once("note_list.html.class"); 
+?>
+<?php include("inc/header.inc"); ?>
+<style>
+table td:nth-of-type(1) { width: 120px; text-align: center; }
+table td:nth-of-type(2) { width: auto; }
+table td:nth-of-type(3) { width: 100px; text-align: center; }
+table td:nth-of-type(4) { width: 100px; text-align: center; }
+table td:nth-of-type(5) { width: 68px; }
+table td:nth-of-type(6) { width: 68px; }
+table td.edit a {
+	width: 54px;
+}
+table td.edit.remove a {
+	background-color: #ff0000;
+}
+</style>
+<script>
+// note: モーダルの表示
+function loadModal(ID) {
+	console.log(location.href);
+	$.post(
+		location.href,
+		{ "action" : "modal", "ROWID" : ID },
+		function(res) {
+			$("#ajax_form").html(res);
+			$("#modal").show("fast");
+		},
+		"html");
+}
+$(function() {
+	// note: 追加ボタンクリック
+	$(".add a").click( function() {
+		loadModal("0");
+	});
+	// note: 編集ボタンクリック
+	$(".load a").click( function() {
+		loadModal($(this).data("rowid"));
+	});
+	// note: 削除ボタンクリック
+	$(".remove a").click(function() {
+		if (!confirm("Release Noteを削除してもよろしいですか？")) return;
+		var data = {};
+		data.action = "remove";
+		data.ROWID = $(this).data("rowid");
+		$.post(location.href, data, function(res) {
+			if (res.status != "SUCCEED") alert(res.text);
+			else location.reload();
+		}, "json");
+	});
+	// note: モーダル取り消しクリック
+	$("#modal .cancel").click( function() {
+		$("#modal").hide("fast");
+		return false;
+	});
+	// note: モーダルOKボタンクリック
+	$("#modal .accept").click( function() {
+		$("#tm_work").val($("#year").val() + "-" + $("#month").val() + "-" + 	$("#day").val());
+		$("#action").val("save");
+	});
+});
+</script>
+<section>
+	<div class="wrap clearfix">
+		<div id="menu">
+			<?php include("inc/menu.inc"); ?>
+		</div>
+		<div class="content">
+			<article>
+				<?= ($page->errors["message"]) ? "<p>{$page->errors["message"]}</p>" : "" ?>
+			</article>
+			<article class="clearfix">
+				<h2>Release Note</h2>
+				<div class="search">
+					<form method="get">
+						<input type="text" name="keyword" value="<?= $_GET["keyword"] ?>">
+						<input type="hidden" name="p" value="1">
+					</form>
+				</div>
+				<div class="add">
+					<a href="javascript:void(0);">Note追加</a>
+				</div>
+			</article>
+			<div class="pager">
+				<?= $page->pager->getDL(Lib\Filter::getQueryString([],["p"]), "clearfix") ?>
+			</div>
+			<table>
+				<tbody>
+					<tr>
+						<th>日付</th>
+						<th>Release Note</th>
+						<th>編集者</th>
+						<th>公開</th>
+						<th></th>
+					</tr>
+					<?php
+					foreach($page->rows as $row) {
+						$tm = strtotime($row["tm_work"]);
+					?>
+					<tr>
+						<td><?= date("Y/m/d", $tm) ?></td>
+						<td><?= nl2br($row["content"]) ?></td>
+						<td><?= $row["user_name"] ?></td>
+						<td class="mk"><?= (!$row["is_released"]) ? "" : "●" ?></td>
+						<td class="edit load">
+							<a href="javascript:void(0);" data-rowid="<?= $row["ROWID"] ?>">編集</a>
+						</td>
+						<td class="edit remove">
+							<a href="javascript:void(0);" data-rowid="<?= $row["ROWID"] ?>">削除</a>
+						</td>
+					</tr>
+					<?php } ?>
+				</tbody>
+			</table>
+		</div><!-- .content -->
+		
+		<div id="modal" class="modal">
+			<form method="post">
+				<div id="ajax_form"></div>
+				<div class="clearfix">
+					<div class="left"><button class="cancel">取消</button></div>
+					<div class="right"><button class="accept">OK</button></div>
+				</div>
+				<input type="hidden" id="tm_work" name="tm_work">
+				<input type="hidden" id="action" name="action">
+			</form>
+		</div><!-- #modal_page -->
+		
+	</div><!-- .wrap -->
+</section>
+<?php include("inc/footer.inc"); ?>

@@ -1,0 +1,59 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * イベントクラス
+ *
+ * プロパティーアクセスは__get()__set()マジックメソッドによって制御される。
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2019 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.191220
+ */
+namespace Lib;
+
+class Event {
+	/**
+	 * @property-read string $name ポストパラメータ名
+	 * @property-read string $value ポストパラメータ値
+	 * @property-read callable $func 継承ページクラスインスタンスとメソッド名の配列
+	 * @property-read string $move コールバック結果がtrueの場合の移動先URL（defaultイベントの場合のみfalseの場合の移動先となる）
+	 * @property-read bool $useSession ポストデータをセッションに保存する場合はtrue
+	 */
+	private $name;
+	private $value;
+	private $func;
+	private $move;
+	private $useSession;
+	/**
+	 * コンストラクタ
+	 *
+	 * @param string $name ポストパラメータ名
+	 * @param string $value ポストパラメータ値
+	 * @param callable $func 継承ページクラスインスタンスとメソッド名の配列
+	 * @param string $move コールバック結果がtrueの場合の移動先URL（defaultイベントの場合のみfalseの場合の移動先となる）
+	 * @param bool $useSession ポストデータをセッションに保存する場合はtrueにする
+	 */
+	public function __construct(string $name, string $value = null, callable $func = null, string $move, bool $useSession) {
+		$this->name = $name;
+		$this->value = $value;
+		$this->func = $func;
+		$this->move = $move;
+		$this->useSession = $useSession;
+	}
+	/**
+	 * マジックメソッドゲッター
+	 *
+	 * @param string $name メンバ変数名
+	 */
+	public function __get(string $name) {
+		return $this->$name;
+	}
+	/**
+	 * マジックメソッドセッター
+	 *
+	 * @param string $name メンバ変数名
+	 * @param mixed $value メンバ変数値
+	 */
+	public function __set(string $name, $value) { }
+}

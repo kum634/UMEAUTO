@@ -1,0 +1,61 @@
+<?php
+/**
+ * config.html page class
+ *
+ * @charset    UTF-8N 文字コード
+ * @package    Lib
+ * @copyright  Copyright (c)2019 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.191225
+ */
+namespace Lib;
+
+require_once("../Conf.inc");
+require_once("Common/Page.class");
+
+class Dialog_Config extends Page {
+	/**
+	 * Load event
+	 */
+	public function default(){
+		Lib::authPage($this);
+		$data["function"] = "getVersion";
+		$data["package"] = "basepack";
+		try {
+			$ch = curl_init("https://libframework.org/deploy/request/");
+			curl_setopt($ch, CURLOPT_FAILONERROR, true);
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+			curl_setopt($ch, CURLOPT_POST, true);
+			curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+			curl_setopt($ch, CURLOPT_USERPWD, "DEPLOY:y8SjK61mNHgA");
+			$res = curl_exec($ch);
+			
+			if (!$res) throw new \Exception(curl_error($ch));
+			$res = json_decode($res, false);
+			$this->values["latest_version"] = $res->version;
+			$this->values["current_version"] = file_get_contents("{$this->path}Lib/version.txt");
+		} catch(\Exception $ex) {
+			$this->errors["message"] = $ex->getMessage();
+		} finally {
+			if ($ch) curl_close($ch);
+		}
+	}
+	public function update() {
+		Lib::authPage($this);
+		$path = "{$this->path}lib-update.php";
+		$file = "{$this->path}Lib/tmp/lib-update.php";
+		if (!file_exists($file)) $this->response("インストーラーが見つかりませんでした。", false);
+		if (!copy($file, $path)) $this->response("インストーラーを起動できませんでした。", false);
+		
+		$res["url"] = (LANG == "ja") ? "{$path}?ja" : $path;
+		$res["package"] = PACKAGE;
+		$this->response($res, true);
+	}
+}
+
+
+$page = new Dialog_Config(__DIR__, $form, "Lib.dialog.config", false);
+$page->setEvent("default", null, array($page, "default"), "", false);
+$page->setEvent("action", "update", array($page, "update"), "", false);
+$page->canCrossPagePostBack = true;
+$page->load();

@@ -1,0 +1,67 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * ページリストページ
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2020 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.200114
+ */
+require_once("page_list.html.class");
+include("inc/header.inc");
+?>
+<style>
+table td:nth-of-type(2) { word-break: break-all; }
+table td:nth-of-type(3) { width: 160px; }
+table td:nth-of-type(4) { width: 232px; min-width: 232px; padding: 0 2px; }
+table td.edit a { float: left; margin-left: 10px; }
+table td.edit a:nth-of-type(3) { background-color: #ff6700; }
+section .content .add a { width: 70px; }
+</style>
+<script>
+$(function() {
+	$("#menu .caption:eq(2) label").click();
+	$("div.content table").on("click", "a.copy", function() {
+		var data = {};
+		data.ROWID = $(this).data("rowid");
+		data.action = "copy";
+		$.post(location.href, data, function(res) {
+			if (res.status != "SUCCEED") alert(res.text);
+			else $("div.content table tbody").html(res.html);
+		}, "json");
+	});
+});
+</script>
+<section>
+	<div class="wrap clearfix">
+		<div id="menu">
+			<?php include("inc/menu.inc"); ?>
+		</div>
+		<div class="content">
+			<article class="clearfix">
+				<?= ($page->errors["message"]) ? "<p>{$page->errors["message"]}</p>" : "" ?>
+				<h2>Pages</h2>
+				<div class="add">
+					<a href="page.html">Add</a>
+				</div>
+			</article>
+			<div class="table">
+				<table>
+					<thead>
+						<tr>
+							<td>Page name</td>
+							<td>URL</th>
+							<td>Update date</td>
+							<td></td>
+						</tr>
+					</thead>
+					<tbody>
+						<?= $page->loadPageList() ?>
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+</section>
+<?php include("inc/footer.inc"); ?>

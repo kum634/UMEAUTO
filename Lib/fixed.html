@@ -1,0 +1,181 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * Fixed編集ページ
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2020 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.200419
+ */
+require_once("fixed.html.class");
+?>
+<?php include("inc/header.inc"); ?>
+<style>
+section form dl dt {
+	min-width: 120px;
+}
+section .content .add a {
+	margin-right: 5px;
+	margin-bottom: 20px;
+	width: 70px;
+}
+table td:nth-of-type(1) { width: 100px; }
+table td:nth-of-type(2), table th:nth-of-type(2) { width: 200px; text-align: center; }
+table td:nth-of-type(3), table th:nth-of-type(3) { width: auto; text-align: left; }
+table td:nth-of-type(4) { width: 80px; min-width: 80px }
+table td:nth-of-type(5) { width: 80px; min-width: 80px }
+#modal {
+	width: 600px;
+	height: 240px;
+}
+#modal h2 {
+	margin-bottom: 20px;
+}
+#modal input { 
+	width: 100%;
+}
+</style>
+<section>
+	<div class="wrap clearfix">
+		<div id="menu">
+			<?php include("inc/menu.inc"); ?>
+		</div>
+		<script>
+		var isBusy = false;
+		$(function() {
+			// note: 戻るボタンクリック
+			$("#btn_back").click(function() {
+				$("#action").val("back");
+			});
+			// note: 保存ボタンクリック
+			$("#btn_save").click(function() {
+				$("#action").val("save");
+				$("#ROWID").val(0);
+			});
+			// note: 削除ボタンクリック
+			$("#btn_delete").click(function() {
+				if (!confirm("削除してもよろしいですか？")) return false;
+				$("#ROWID").val(0);
+				$("#action").val("delete");
+			});
+			// note: 追加クリック
+			$(".add a").click(function() {
+				$(".detail > h2").html("Add element");
+				$("input[name='value']").val("");
+				$("input[name='key']").val("");
+				$("#ROWID").val(0);
+				$("#modal").show("fast");
+			});
+			// note: リスト編集クリック
+			$("#ajax_table").on("click", "td.edit a.edit", function() {
+				$(".detail > h2").html("Edit element");
+				$("input[name='value']").val($(this).parent().parent().children("td:nth-of-type(3)").text());
+				$("input[name='key']").val($(this).parent().parent().children("td:nth-of-type(2)").text());
+				$("#ROWID").val($(this).data("rowid"));
+				$("#modal").show("fast");
+			});
+			// note: リスト削除クリック
+			$("#ajax_table").on("click", "td.edit a.delete", function() {
+				if (!confirm("削除してもよろしいですか？")) return false;
+				$("#ROWID").val($(this).data("rowid"));
+				$("#action").val("delete");
+				$("form").submit();
+			});
+			// note: リスト移動クリック
+			$("#ajax_table").on("click", "td a.up, td a.dw", function() {
+				if (isBusy) return false; else isBusy = true;
+				var data = {};
+				data["action"] = $(this).data("action");
+				data["ROWID"] = $(this).data("rowid");
+				$.post(location.href, data, function(res) {
+					isBusy = false;
+					if (res.indexOf("FAILURE:") > -1) alert(res);
+					else $("#ajax_table").html(res);
+				});
+			});
+			// note: モーダル取消ボタンクリック
+			$("#modal .cancel").click(function() {
+				$("#modal").hide("fast");
+				$("input[name='value']").val("");
+				$("input[name='key']").val("");
+				return false;
+			});
+			// note: モーダルOKボタンクリック
+			$("#modal .accept").click( function() {
+				if(!$("input[name='new_function']").val()) {
+					alert("function名が入力されていません");
+					return false;
+				}
+				$("#action").val("save");
+			});
+		});
+		</script>
+			<div class="content">
+				<form method="post">
+					<article>
+						<?= ($page->errors["form"]) ? "<p>{$page->errors["form"]}</p>" : "" ?>
+					</article>
+					<article class="clearfix">
+						<?= ($_GET["function"] == "NEW") ? "<h2>New static array</h2>" : "<h2>Edit static array</h2>" ?>
+					</article>
+					<div class="detail clearfix">
+						<dl>
+							<dt>Function name</dt>
+							<dd>
+								<input type="text" name="new_function" value="<?= $page->values["new_function"] ?>">
+							</dd>
+						</dl>
+						<dl>
+							<dt>Commnet</dt>
+							<dd>
+								<input type="text" name="comment" value="<?= $page->values["comment"] ?>">
+							</dd>
+						</dl>
+					</div><!-- .detail -->
+
+					<div class="add">
+						<a href="javascript:void(0)">Add</a>
+					</div>
+
+					<div id="ajax_table"><?= $page->getKeyValueTag() ?>
+					</div>
+
+					<div>
+						<div class="left">
+							<button id="btn_back">Back</button>
+							<button id="btn_save">Save</button>
+						</div>
+						<div class="right">
+							<button id="btn_delete">Delete</button>
+						</div>
+					</div>
+					<input type="hidden" id="function" name="old_function" value="<?= $page->rows[0]["function"] ?>">
+					<input type="hidden" id="action" name="action">
+					<input type="hidden" id="ROWID" name="ROWID">
+					<div id="modal" class="modal">
+						<div class="detail clearfix">
+							<h2></h2>
+							<dl>
+								<dt>Key</dt>
+								<dd>
+									<input type="text" name="key">
+								</dd>
+							</dl>
+							<dl>
+								<dt>Value</dt>
+								<dd>
+									<input type="text" name="value">
+								</dd>
+							</dl>
+						</div>
+						<div class="left"><button class="cancel">Cancel</button></div>
+						<div class="right"><button class="accept">OK</button></div>
+					</div><!-- #modal -->
+
+				</form>
+		</div><!-- .content -->
+
+	</div><!-- .wrap -->
+</section>
+<?php include("inc/footer.inc"); ?>

@@ -1,0 +1,106 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * キャッシュページクラス
+ *
+ * プロパティーアクセスは__get()__set()マジックメソッドによって制御される。
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2018 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.1.180515
+ */
+namespace Lib;
+
+require_once("../Conf.inc");
+require_once("Common/Filter.class");
+
+class Page_Index {
+	/**
+	 * @property-read string $path アクセスURLの相対パス
+	 */
+	private $path = "../../";
+	/**
+	 * マジックメソッドゲッター
+	 *
+	 * @param string $name メンバ変数名
+	 */
+	public function __get(string $name) { return $this->$name; }
+	/**
+	 * マジックメソッドセッター
+	 *
+	 * @param string $name メンバ変数名
+	 * @param mixed $value メンバ変数値
+	 */
+	public function __set(string $name, $value) { }
+	/**
+	 * イベント処理
+	 */	//
+	public function load() {
+		if (!isset($_SESSION[DOMAIN]["Lib.user"])) {
+			header("Location: ../login.html");
+			exit();
+		}
+		if ($_POST["action"] == "reset") $this->resetCache();
+	}
+	/**
+	 * Ajaxアクセスキーに対しキャッシュの削除を実行する
+	 */
+	public function resetCache() {
+		opcache_reset();
+		echo $this->getCacheTag();
+		exit();
+	}
+	/**
+	 * OPキャッシュをテーブルに出力する
+	 */
+	public function getCacheTag() : string {
+		$array = opcache_get_status(true);
+		$sum = $array["memory_usage"]["used_memory"] + $array["memory_usage"]["free_memory"];
+		$used = Filter::getByte($array["memory_usage"]["used_memory"]);
+		$free = Filter::getByte($array["memory_usage"]["free_memory"]);
+		$sum = Filter::getByte($sum);
+		$time = date("'y/m/d H:i:s");
+
+		$tag.= "<table>\n";
+		$tag.= "<tr>\n";
+		$tag.= "	<th>検証時間</th>\n";
+		$tag.= "	<th>使用メモリ</th>\n";
+		$tag.= "	<th>空きメモリ</th>\n";
+		$tag.= "	<th>合計</th>\n";
+		$tag.= "</tr>\n";
+		$tag.= "<tr>\n";
+		$tag.= "	<td>{$time}</td>\n";
+		$tag.= "	<td>{$used}</td>\n";
+		$tag.= "	<td>{$free}</td>\n";
+		$tag.= "	<td>{$sum}</td>\n";
+		$tag.= "</tr>\n";
+		$tag.= "</table>\n";
+
+		$tag.= "<table>\n";
+		$tag.= "<tr>\n";
+		$tag.= "	<th>スクリプト</th>\n";
+		$tag.= "	<th>消費メモリ</th>\n";
+		$tag.= "	<th>最終使用時間</th>\n";
+		$tag.= "</tr>\n";
+		
+		arsort($array["scripts"]);
+		foreach ($array["scripts"] as $v) {
+			$byte = Filter::getByte($v["memory_consumption"]);
+			$time = date("'y/m/d H:i:s", $v["last_used_timestamp"]);
+			
+			$tag.= "<tr>\n";
+			$tag.= "	<td>{$v["full_path"]}</td>\n";
+			$tag.= "	<td>{$byte}</td>\n";
+			$tag.= "	<td>{$time}</td>\n";
+			$tag.= "</tr>\n";
+		}
+		$tag.= "</table>\n";
+		return $tag;
+	}
+}
+/**
+ * ページインスタンス生成しload()を実行する
+ */
+$page = new Page_Index();
+$page->load();

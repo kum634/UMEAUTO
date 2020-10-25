@@ -1,0 +1,147 @@
+<?php 
+/**
+ * config.html
+ *
+ * @charset    UTF-8N 文字コード
+ * @package    Lib
+ * @copyright  Copyright (c) 2019 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.190701
+ */
+require_once("config.html.class");
+?>
+<style>
+div.config div.page {
+	height: 506px;
+}
+div.config input[type="text"] {
+	margin: 0;
+	width: 100%;
+	border: 1px solid #f1f1f1;
+	background: #f1f1f1;
+	cursor: pointer;
+}
+div.config div.version form {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+}
+div.config div.version input[type="text"] {
+	padding: 50px;
+	text-align: center;
+	font-size: 16px;
+}
+</style>
+<script>
+$(function() {
+	if ("<?= LANG ?>" != "en") translate($("div.config"));
+	$("div.config ul li").on("click", function() {
+		$("div.config ul li").removeClass("current");
+		$(this).addClass("current");
+		$("div.config div.page").hide();
+		$("div.config div.page."+ $(this).data("page")).show();
+	});
+	$("div.config ul li:first-child").click();
+	$("div.config button[action=update]").on("click", function() {
+		var $button = $(this);
+		$button.prop("disabled", true);
+		var data = {};
+		data.action = "update";
+		$.post("<?= $page->path ?>Lib/dialog/config.html", data, function(res) {
+			if (res.status == "FAILURE") {
+				alert(res.text);
+				$button.prop("disabled", false);
+			} else {
+				var form = $("<form />", { action: res.url, method: "post" });
+				form.append($("<input />", { type: "hidden", name: "email", value: res.email }));
+				form.append($("<input />", { type: "hidden", name: "package", value: res.package }));
+				form.appendTo(document.body);
+				form.submit();
+				}
+		}, "json");
+	});
+});
+</script>
+<div class="config">
+	<header><h1>Configuration</h1><a>x</a></header>
+	<ul>
+		<li class="lang current" data-page="conf">Configuration</li>
+		<li class="lang" data-page="version">Framework version</li>
+	</ul>
+	<div class="page conf">
+		<form>
+			<dl>
+				<dt>Domain name</dt>
+				<dd>
+					<input type="text" value="<?= DOMAIN ?>" readonly>
+				</dd>
+			</dl>
+			<dl>
+				<dt>SSL URL</dt>
+				<dd>
+					<input type="text" value="<?= SSL_URL ?>" readonly>
+				</dd>
+			</dl>
+			<dl>
+				<dt>MySQL host name</dt>
+				<dd>
+					<input type="text" value="<?= DB_HOST ?>" readonly>
+				</dd>
+			</dl>
+			<dl>
+				<dt>MySQL database name</dt>
+				<dd>
+					<input type="text" value="<?= DB_NAME ?>" readonly>
+				</dd>
+			</dl>
+			<dl>
+				<dt>MySQL user name</dt>
+				<dd>
+					<input type="text" value="<?= DB_USER ?>" readonly>
+				</dd>
+			</dl>
+			<dl>
+				<dt>MySQL password</dt>
+				<dd>
+					<input type="text" value="<?= DB_PASS ?>" readonly>
+				</dd>
+			</dl>
+			<dl>
+				<dt>Language</dt>
+				<dd>
+					<input type="text" value="<?= LANG ?>" readonly>
+				</dd>
+			</dl>
+			<dl>
+				<dt>E-mail</dt>
+				<dd>
+					<input type="text" value="<?= EMAIL ?>" readonly>
+				</dd>
+			</dl>
+		</form>
+	</div>
+	<div class="page version">
+		<form>
+			<?= ($page->errors["message"]) ? "<p>{$page->errors["message"]}</p>" : "" ?>
+			<p>
+				Updateをクリックすると最新バージョンへの更新が始まります。<br>
+				更新内容についてはマニュアルサイトでご確認ください。
+			</p>
+			<dl>
+				<dt>Current version</dt>
+				<dd>
+					<input type="text" value="<?= $page->values["current_version"] ?>" readonly>
+				</dd>
+			</dl>
+			<dl>
+				<dt>Latest release</dt>
+				<dd>
+					<input type="text" value="<?= $page->values["latest_version"] ?>" readonly>
+				</dd>
+			</dl>
+		</form>
+		<footer>
+			<button class="update center lang" action="update">Update</button>
+		</footer>
+	</div>
+</div><!-- div.dialog -->

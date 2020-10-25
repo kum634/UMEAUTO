@@ -1,0 +1,37 @@
+<?php
+ /**
+ * Google API class
+ *
+ * @charset    UTF-8N
+ * @package    Lib
+ * @copyright  Copyright (c) 2020 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    LIB PHP Framework 3.2.200113
+ */
+namespace Lib;
+
+class Google {
+	/**
+	 * Get Holidays from Google Calendar.
+	 *
+	 * @param string $key Google API 認証キー
+	 * @param string $dateMin 取得開始日（Y-m-d）
+	 * @param string $dateMax 取得終了日（Y-m-d）
+	 * @param int $maxResults 最大取得数
+	 * @param string $id カレンダーID（規定値はGoogle 公式版日本語）
+	 * @retrun array タイムスタンプと祝日表記の連想配列
+	 */
+	public static function getHoliday($key, $dateMin, $dateMax, $maxResults = 30, $id = "japanese__ja@holiday.calendar.google.com") {
+		$url = sprintf("https://www.googleapis.com/calendar/v3/calendars/%s/events?".
+			"key=%s&timeMin=%s&timeMax=%s&maxResults=%d&orderBy=startTime&singleEvents=true",
+			$id, $key, $dateMin.'T00:00:00Z', $dateMax.'T00:00:00Z', $maxResults);
+
+		$res = file_get_contents($url);
+		$date = array();
+		if ($res) {
+			$res = json_decode($res);
+			foreach ($res->items as $item) $date[strtotime($item->start->date)] = $item->summary;
+		}
+		return $date;
+	}
+}

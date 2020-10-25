@@ -1,0 +1,599 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * データアクセスクラス
+ *
+ * プロパティーアクセスは__get()__set()マジックメソッドによって制御される。
+ * 複数のクエリーを同一コネクションで実行する場合は、tryブロックでopen()メソッドを呼び出しfinallyブロックでclose()メソッドを呼び出します。
+ * 単一のクエリーを実行する場合は、オートコネクションメソッドを使用してください。
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2020 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.200318
+ */
+namespace Lib;
+
+require_once("Common/Trace.class");
+
+class DAC {
+	/**
+	 * @property-read string $conn open()メソッドにて生成されるコネクションオブジェクト
+	 * @property string $command クエリー文字列
+	 * @property-read array $arrayTempTable テンポラリーテーブル配列
+	 * @property-read array $arrayColumn 取得するカラムの配列
+	 * @property-read array $arrayGroup グルーピングするカラムの配列
+	 * @property-read array $arrayData 更新するカラム対データの連想配列
+	 * @property-read array $arrayDataAppend 更新するカラム対加算するデータの連想配列
+	 * @property-read string $option WHERE句の条件式
+	 * @property-read string $having HAVING句の条件式
+	 * @property-read string $order 並び変えカラムと順序
+	 * @property-read string $driver コンストラクタでデータベースドライバーが設定される
+	 * @property-read array $dsn コンストラクタでデータベース接続情報が設定される
+	 * @property-read bool $useDebug コンストラクタでトレースセッションへの書き込みフラグが設定される
+	 * @property-read array $message データベース接続から切断までにエラーをキャッチした場合にPDOExceptionメッセージが設定される
+	 */
+	private $conn;
+	private $command;
+	private $arrayTempTable;
+	private $arrayColumn;
+	private $arrayGroup;
+	private $arrayData;
+	private $arrayDataAppend;
+	private $option;
+	private $having;
+	private $order;
+	private $driver;
+	private $dsn;
+	private $useDebug;
+	private $message;
+	/**
+	 * コンストラクタ
+	 *
+	 * @param array $dsn データベース接続情報
+	 * @param string $driver データベースドライバー
+	 * @param bool $useDebug 実行コマンドをTraceセッションに書き込む場合はtrueを指定する
+	 */
+	public function __construct(array $dsn, string $driver, $useDebug = false) {
+		$this->arrayTempTable = array();
+		$this->arrayColumn = array();
+		$this->arrayGroup = array();
+		$this->arrayData = array();
+		$this->arrayDataAppend = array();
+		$this->driver = $driver;
+		$this->dsn = $dsn;
+		$this->useDebug = $useDebug;
+	}
+	/**
+	 * マジックメソッドゲッター
+	 *
+	 * @param string $name メンバ変数名
+	 */
+	public function __get(string $name) { return $this->$name; }
+	/**
+	 * マジックメソッドセッター
+	 *
+	 * @param string $name メンバ変数名
+	 * @param mixed $value メンバ変数値
+	 */
+	public function __set(string $name, string $value) {
+		if ($name == "command") $this->$name = $value;
+	}
+	/**
+	 * コネクションオブジェクトを生成し適切なハンドル属性を指定する
+	 */
+	public function open() {
+		if (!is_null($this->conn)) return;
+		switch ($this->driver) {
+			case "sqlite" :
+				if (!file_exists($this->dsn["path"])) throw new \Exception("データファイルが見つかりませんでした。\n{$this->dsn["path"]} " . __METHOD__);
+				$this->conn = new \PDO("sqlite:{$this->dsn["path"]}");
+				$this->conn->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+				break;
+			case "mysql":
+				$this->conn = new \PDO("mysql:host={$this->dsn["host"]};dbname={$this->dsn["dbname"]};charset=utf8", $this->dsn["user"], $this->dsn["password"]);
+				$this->conn->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+				$this->conn->setAttribute(\PDO::ATTR_EMULATE_PREPARES, false);
+				break;
+			default:
+				throw new \Exception("指定のドライバーには対応していません。{$this->driver} " . __METHOD__);
+				break;
+		}
+	}
+	/**
+	 * コネクションオブジェクトを開放する
+	 */
+	public function close() {
+		$this->conn = null;
+	}
+	/**
+	 * コマンドを実行する
+	 *
+	 * @retrun array 影響を受けた件数が1以上の場合にtrueを返す
+	 */
+	public function execute() {
+		if ($this->useDebug) Trace::setText($this->command);
+		return ($this->conn->exec($this->command) > 0);
+	}
+	/**
+	 * クエリー文字列を発行し結果セットを配列形式で返す
+	 * 結果セットが存在しない場合はnullを返す
+	 *
+	 * @retrun array 結果セット
+	 */
+	public function query() {
+		if ($this->useDebug) Trace::setText($this->command);
+		if (!$stmt = $this->conn->query($this->command)) return null;
+
+		while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) $rows[] = $row;
+		$stmt->closeCursor();
+		return $rows;
+	}
+	/**
+	 * クエリー文字列を発行し一行一列の結果返す
+	 * 結果が存在しない場合はnullを返す
+	 *
+	 * @param string $view 単一のテーブル名またはJOIN句
+	 * @param bool $useSelectCommandMethod commandプロパティ値に関わらず、selectCommandメソッドを実行してクエリー文字列を作成する
+	 * @retrun string 一行一列の結果
+	 */
+	public function scalar($view, $useSelectCommandMethod = false) {
+		if ($useSelectCommandMethod || !$this->command) $this->command = $this->getSelectCommand($view);
+		if ($this->useDebug) Trace::setText($this->command);
+		if (!$stmt = $this->conn->query($this->command)) return null;
+
+		$row = $stmt->fetch(\PDO::FETCH_ASSOC);
+		$stmt->closeCursor();
+		return reset($row);
+	}
+	/**
+	 * トランザクションを開始する
+	 */
+	public function begin() {
+		$this->command = "Begin";
+		$this->execute();
+	}
+	/**
+	 * トランザクションをコミットする
+	 */
+	public function commit() {
+		$this->command = "Commit";
+		$this->execute();
+	}
+	/**
+	 * 直近のクエリで生成されたIDを返す
+	 *
+	 * @param int オートインクリメントID
+	 */
+	public function getSequence() {
+		if ($this->driver == "sqlite") {
+			$this->command = "Select last_insert_rowid() As seq";
+			$rows = $this->query();
+		} else {
+			$this->command = "Select LAST_INSERT_ID() As seq";
+			$rows = $this->query();
+		}
+		return $rows[0]["seq"];
+	}
+	/**
+	 * 連番発行用に用意されたテーブルのIDをインクリメントして返す
+	 *
+	 * @param string $table 連番発行用の1行1列のテーブル
+	 * @return int インクリメントID
+	 */
+	public function setSequence(string $table) {
+		if ($this->driver == "sqlite") return false;
+		
+		$this->command = "Update {$table} Set ID = LAST_INSERT_ID(ID + 1)";
+		$this->execute();
+		$this->command = "Select LAST_INSERT_ID() As seq";
+		$rows = $this->query();
+		return $rows[0]["seq"];
+	}
+	/**
+	 * クエリー文字列の生成に関係するメンバ変数を初期化する
+	 */
+	public function clear() {
+		$this->arrayColumn = array();
+		$this->arrayGroup = array();
+		$this->arrayData = array();
+		$this->arrayDataAppend = array();
+		$this->option = null;
+		$this->having = null;
+		$this->order = null;
+		$this->command = null;
+	}
+	/**
+	 * 取得カラムを追加する
+	 *
+	 * @param string $column 取得カラム（カンマ区切りで複数指定可能）
+	 */
+	public function setColumn(string $column) {
+		$this->arrayColumn[] = $column;
+	}
+	/**
+	 * グルーピングカラムを追加する
+	 *
+	 * @param string $column グルーピングカラム
+	 */
+	public function setGroup(string $column) {
+		$this->arrayGroup[] = $column;
+	}
+	/**
+	 * 更新するカラムとデータを追加する
+	 *
+	 * @param string $column 更新カラム
+	 * @param int|string $data 更新データ
+	 */
+	public function setData(string $column, $data) {
+		$this->arrayData[$column] = $data;
+	}
+	/**
+	 * 更新するカラムとデータを追加する
+	 * modified: 170927 第3引数に対象キー配列を指定した場合に対象キー配列に存在しないカラムを除外する
+	 *
+	 * @param array $array カラム対データの連想配列
+	 * @param array $exists $arrayの内、対象外となるキーの配列
+	 * @param array $keys $arrayの内、対象となるキーの配列
+	 */
+	public function setDataArray(array $array, array $exists = null, array $keys = null) {
+		foreach ($array as $k => $v) {
+			if (in_array($k, $exists)) continue;
+			if (!is_null($keys) && !in_array($k, $keys)) continue;
+			$this->arrayData[$k] = $v;
+		}
+	}
+	/**
+	 * 更新するカラムと加算データを追加する
+	 *
+	 * @param string $column 更新カラム
+	 * @param int|string $data 加算データ
+	 */
+	public function appendData(string $column, $data) {
+		$this->arrayDataAppend[$column] = $data;
+	}
+	/**
+	 * フォーマット式を指定しWHERE条件式を追加する
+	 * modified: 190614 コネクションオープンに失敗した場合、プロパティにエラーメッセージをセットしfalseを返す
+	 *
+	 * @param string $format 括弧でくくられた連番付きの文字列
+	 * @param int|string ...$values $formatの括弧部分に挿入する可変長文字列
+	 */
+	public function setOption(string $format, ...$values) {
+		if (is_null($this->conn)) try { $this->open(); } catch (\Exception $ex) { $this->message = $ex->getMessage(); return false; }
+		foreach ($values as $k => $v) $format = str_replace(array("'[{$k}]'", "[{$k}]"), $this->conn->quote($v), $format);
+		if (!$this->option) $this->option = " ({$format})";
+		else $this->option .= " And ({$format})";
+		return true;
+	}
+	/**
+	 * added: 200318 フォーマット式を指定しOR条件式を追加する
+	 *
+	 * @param string $format 括弧でくくられた連番付きの文字列
+	 * @param int|string ...$values $formatの括弧部分に挿入する可変長文字列
+	 */
+	public function setOptionOr(string $format, ...$values) {
+		if (is_null($this->conn)) try { $this->open(); } catch (\Exception $ex) { $this->message = $ex->getMessage(); return false; }
+		foreach ($values as $k => $v) $format = str_replace(array("'[{$k}]'", "[{$k}]"), $this->conn->quote($v), $format);
+		if (!$this->option) $this->option = " ({$format})";
+		else $this->option .= " Or ({$format})";
+		return true;
+	}
+	/**
+	 * フォーマット式を指定しHAVING条件式を追加する
+	 *
+	 * @param string $format 括弧でくくられた連番付きの文字列
+	 * @param int|string ...$values $formatの括弧部分に挿入する可変長文字列
+	 */
+	public function setHaving(string $format, ...$values) {
+		foreach ($values as $k => $v) $format = str_replace(array("[{$k}]"), $v, $format);
+		if (!$this->having) $this->having = " ({$format})";
+		else $this->having .= " And ({$format})";
+	}
+	/**
+	 * 並び変えカラムと順序を追加する
+	 *
+	 * @param mixed $value カラムと順序（カンマ区切りで複数指定可能）
+	 */
+	public function setOrder($value) {
+		Filter::set($value, 100, "[^0-9A-Za-z\-_.\"`() ,]");
+		if (!$this->order) $this->order = $value;
+		else $this->order .= ", {$value}";
+	}
+	/**
+	 * メンバ変数に設定されたカラム配列、条件式、ORDER句を使用して生成した選択クエリーを返す
+	 *
+	 * @param string $view 単一のテーブル名またはJOIN句
+	 * @param int $limit 結果セットの上限
+	 * @param int $offset 結果セットのオフセット
+	 * @return string 選択クエリー
+	 */
+	public function getSelectCommand(string $view, int $limit = null, int $offset = null) : string {
+		$s = "Select ";
+		$s.= implode(", ", $this->arrayColumn);
+		$s.= " From {$view}";
+		if ($this->option) $s.= " Where {$this->option}";
+		if (count($this->arrayGroup) > 0) $s.= " Group By " . implode(", ", $this->arrayGroup);
+		if ($this->having) $s.= " Having {$this->having}";
+		if ($this->order) $s.= " Order By {$this->order}";
+		if (!is_null($limit)) $s.= " Limit {$limit}";
+		if (!is_null($offset)) $s.= " Offset {$offset}";
+		return $s;
+	}
+	/**
+	 * テンポラリーテーブルクエリーを追加する
+	 *
+	 * @param string $view 単一のテーブル名またはJOIN句
+	 * @param string $name テンポラリーテーブル名
+	 */
+	public function setTempTable(string $view, string $name) {
+		$query = $this->getSelectCommand($view);
+		$this->arrayTempTable[] = "Create Temporary Table `{$name}`($query)";
+	}
+	/**
+	 * 選択クエリーを実行する
+	 *
+	 * @param string $view 単一のテーブル名またはJOIN句
+	 * @param int $limit 結果セットの上限
+	 * @param int $offset 結果セットのオフセット
+	 * @return array 結果セット
+	 */
+	public function select(string $view, int $limit = null, int $offset = null) {
+		$this->command = $this->getSelectCommand($view, $limit, $offset);
+		return $this->query();
+	}
+	/**
+	 * オートコネクションメソッド
+	 * データベースに接続後、選択クエリーの結果セットを参照引数にセットする
+	 *
+	 * @param string $view 単一のテーブル名またはJOIN句
+	 * @param array &$rows 結果セットの参照引数
+	 * @param int $limit 結果セットの上限
+	 * @param int $offset 結果セットのオフセット
+	 * @return bool 処理が正常に行われた場合はtrueを、失敗した場合メンバ変数にPDOExceptionメッセージを設定しfalseを返す
+	 */
+	public function selectRows(string $view, &$rows, int $limit = null, int $offset = null) {
+		try {
+			$this->open();
+			foreach ($this->arrayTempTable as $command) {
+				$this->command = $command;
+				$this->execute();
+			}
+			$rows = $this->select($view, $limit, $offset);
+			return true;
+		} catch (\Exception $ex) {
+			$this->message = $ex->getMessage();
+			return false;
+		} finally {
+			$this->close();
+		}
+	}
+	/**
+	 * オートコネクションメソッド
+	 * データベースに接続後、選択クエリーの結果セットをカウントしページャで指定したページを参照引数にセットする
+	 *
+	 * @param string $view 単一のテーブル名またはJOIN句
+	 * @param array &$rows 結果セットの参照引数
+	 * @param Lib\Pager $pager ページャインスタンス
+	 * @return bool 処理が正常に行われた場合はtrueを、失敗した場合メンバ変数にPDOExceptionメッセージを設定しfalseを返す
+	 */
+	public function selectPageRows(string $view, &$rows, $pager) {
+		try {
+			$this->open();
+			foreach ($this->arrayTempTable as $command) {
+				$this->command = $command;
+				$this->execute();
+			}
+			$query = $this->getSelectCommand($view);
+			$this->command = "Select Count(*) As cnt From ({$query}) As v";
+			$rowsCount = $this->query();
+			$pager->count = $rowsCount[0]["cnt"];
+
+			$rows = $this->select($view, $pager->limit, $pager->offset);
+			return true;
+		} catch (\Exception $ex) {
+			$this->message = $ex->getMessage();
+			return false;
+		} finally {
+			$this->close();
+		}
+	}
+	/**
+	 * 更新クエリーを実行する
+	 * $prepareをtrueにした場合で更新すべきカラム対加算データが存在しない場合はプリペアードステートメントが使用される。
+	 * それ以外の場合は単一の更新クエリーが発行される。
+	 *
+	 * @param string $view 単一のテーブル名またはJOIN句
+	 * @param int $limit 更新行数
+	 * @param bool $prepare プリペアードステートメントを使用する場合はtrueを指定する
+	 * @return array 影響を受けた件数が1以上の場合にtrueを返す
+	 */
+	public function update(string $table, int $limit = null, $prepare = true) {
+		$q = ($this->driver === "mysql") ? "`" : "\"";
+		if ($prepare === true && count($this->arrayDataAppend) == 0) {
+			$s = "Update {$q}{$table}{$q} Set ";
+			foreach (array_keys($this->arrayData) as $k) $array[] = "{$q}{$k}{$q} = :{$k}";
+			$s.= implode(", ", $array);
+			if ($this->option) $s.= " Where {$this->option}";
+			if ($limit) $s.= " Limit {$limit}";
+			$stmt = $this->conn->prepare($s);
+			foreach ($this->arrayData as $k => $v) {
+				if (!is_array($v)) $stmt->bindValue(":{$k}", $v);
+				else $stmt->bindValue(":{$k}", implode(",", $v));
+			}
+			if ($this->useDebug) Trace::set(__METHOD__, $s . "<br>" . print_r($this->arrayData, true), __FILE__, __LINE__);
+			return $stmt->execute();
+		} else {
+			$s = "Update {$q}{$table}{$q} Set ";
+			foreach ($this->arrayData as $k => $v) {
+				if (!is_array($v)) {
+					$v = $this->conn->quote($v);
+					$array[] = "{$q}{$k}{$q} = {$v}";
+				} else {
+					$ss = array();
+					foreach ($v as $v2) if (!is_array($v2)) $ss[] = trim($this->conn->quote($v2), "'");
+					$array[] = "{$q}{$k}{$q} = '" . implode(",", $ss) . "'";
+				}
+			}
+			foreach ($this->arrayDataAppend as $k => $v) {
+				if (is_string($v)) {
+					$v = $this->conn->quote($v);
+					$array[] = "{$q}{$k}{$q} = concat({$q}{$k}{$q}, {$v})";
+				} else if (is_int($v)) {
+					$array[] = "{$q}{$k}{$q} = {$q}{$k}{$q} + {$v}";
+				} else {
+					throw new \Exception("既存データに追加するデータ型はintまたはstringでなければなりません。");
+				}
+			}
+			$s.= implode(", ", $array);
+			if ($this->option) $s.= " Where {$this->option}";
+			if ($limit) $s.= " Limit {$limit}";
+			$this->command = $s;
+			return $this->execute();
+		}
+	}
+	/**
+	 * オートコネクションメソッド
+	 * データベースに接続後、更新クエリーを実行する
+	 * $prepareをtrueにした場合で更新すべきカラム対加算データが存在しない場合はプリペアードステートメントが使用される。
+	 * それ以外の場合は単一の更新クエリーが発行される。
+	 *
+	 * @param string $view 単一のテーブル名またはJOIN句
+	 * @param int $limit 更新行数
+	 * @param bool $prepare プリペアードステートメントを使用する場合はtrueを指定する
+	 * @return bool 処理が正常に行われた場合はtrueを、失敗した場合メンバ変数にPDOExceptionメッセージを設定しfalseを返す
+	 */
+	public function updateData(string $table, int $limit = null, $prepare = true) {
+		try {
+			$this->open();
+			$this->update($table, $limit, $prepare);
+			return true;
+		} catch (\Exception $ex) {
+			$this->message = $ex->getMessage();
+			return false;
+		} finally {
+			$this->close();
+		}
+	}
+	/**
+	 * 挿入クエリーを実行する
+	 * $prepareをtrueにした場合はプリペアードステートメントが使用される。
+	 * それ以外の場合は単一の更新クエリーが発行される。
+	 *
+	 * @param string $view 単一のテーブル名またはJOIN句
+	 * @param bool $prepare プリペアードステートメントを使用する場合はtrueを指定する
+	 * @return array 影響を受けた件数が1以上の場合にtrueを返す
+	 */
+	public function insert(string $table, $prepare = true) {
+		$q = ($this->driver == "mysql") ? "`" : "\"";
+		if ($prepare === true) {
+			$s = "Insert Into {$q}{$table}{$q} ({$q}";
+			$s.= implode("{$q}, {$q}", array_keys($this->arrayData));
+			$s.= "{$q}) Values (:";
+			$s.= implode(", :", array_keys($this->arrayData));
+			$s.= ")";
+			$stmt = $this->conn->prepare($s);
+			foreach ($this->arrayData as $k => $v) {
+				if (!is_array($v)) $stmt->bindValue(":{$k}", $v);
+				else $stmt->bindValue(":{$k}", implode(",", $v));
+			}
+			if ($this->useDebug) Trace::set(__METHOD__, $s . "<br>" . print_r($this->arrayData, true), __FILE__, __LINE__);
+			return $stmt->execute();
+		} else {
+			$s = "Insert Into {$q}{$table}{$q} ({$q}";
+			$s.= implode("{$q}, {$q}", array_keys($this->arrayData));
+			$s.= "{$q}) Values (";
+			foreach ($this->arrayData as $k => $v) {
+				if (!is_array($v)) $array[] = $this->conn->quote($v);
+				else {
+					$ss = array();
+					foreach ($v as $v2) if (!is_array($v2)) $ss[] = trim($this->conn->quote($v2), "'");
+					$array[] = "'" . implode(",", $ss) . "'";
+				}
+			}
+			$s.= implode(", ", $array);
+			$s.= ")";
+			$this->command = $s;
+			return $this->execute();
+		}
+	}
+	/**
+	 * オートコネクションメソッド
+	 * データベースに接続後、挿入クエリーを実行する
+	 * $prepareをtrueにした場合はプリペアードステートメントが使用される。
+	 * それ以外の場合は単一の更新クエリーが発行される。
+	 *
+	 * @param string $view 単一のテーブル名またはJOIN句
+	 * @param bool $prepare プリペアードステートメントを使用する場合はtrueを指定する
+	 * @return bool 処理が正常に行われた場合はtrueを、失敗した場合メンバ変数にPDOExceptionメッセージを設定しfalseを返す
+	 */
+	public function insertData(string $table, $prepare = true, $useSequence = false) {
+			try {
+			$this->open();
+			$this->insert($table, $prepare);
+			if ($useSequence) return $this->getSequence();
+			else return true;
+		} catch (\Exception $ex) {
+			$this->message = $ex->getMessage();
+			return false;
+		} finally {
+			$this->close();
+		}
+	}
+	/**
+	 * 削除クエリーを実行する
+	 *
+	 * @param string $view 単一のテーブル名またはJOIN句
+	 * @param int $limit 更新行数
+	 * @return array 影響を受けた件数が1以上の場合にtrueを返す
+	 */
+	public function delete(string $table, int $limit = null) {
+		$q = ($this->driver == "mysql") ? "`" : "\"";
+		$s = "Delete From {$q}{$table}{$q}";
+		$s.= " Where ($this->option)";
+		if ($limit) $s .= " Limit {$limit}";
+
+		$this->command = $s;
+		return $this->execute();
+	}
+	/**
+	 * オートコネクションメソッド
+	 * データベースに接続後、削除クエリーを実行する
+	 *
+	 * @param string $view 単一のテーブル名またはJOIN句
+	 * @param int $limit 更新行数
+	 * @return bool 処理が正常に行われた場合はtrueを、失敗した場合メンバ変数にPDOExceptionメッセージを設定しfalseを返す
+	 */
+	public function deleteRows(string $table, int $limit = null) {
+			try {
+			$this->open();
+			$this->delete($table, $limit);
+			return true;
+		} catch (\Exception $ex) {
+			$this->message = $ex->getMessage();
+			return false;
+		} finally {
+			$this->close();
+		}
+	}
+	/**
+	 * added: 171120 データをコピーする
+	 *
+	 * @param string $table テーブル名
+	 * @param string $option コピー対象データの条件式
+	 * @param array $exists コピーの対象外となるカラム配列
+	 * @param array $data 上書きするカラム対データの連想配列
+	 */
+	public function copy(string $table, string $option, array $exists, array $data) {
+		$this->clear();
+		$this->setColumn("*");
+		$this->setOption($option);
+		$rows = $this->select($table);
+		
+		foreach ($rows as $row) {
+			$this->setDataArray($row, $exists);
+			foreach ($data as $column => $value) $this->setData($column, $value);
+			$this->insert($table);
+		}
+	}
+}

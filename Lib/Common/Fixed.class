@@ -1,0 +1,767 @@
+<?php
+ /**
+ * 文字コード UTF-8N 改行コードLF
+ * 定量項目タティッククラス
+ *
+ * 定量項目に関するスタティックメソッドのみを実装している。
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2020 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.200526
+ */
+namespace Lib;
+
+class Fixed {
+	/**
+	 * データベース接続情報
+	 *
+	 * @return array データベース接続情報連想配列
+	 */
+	public static function connection() : array {
+		return array(
+			"host" => DB_HOST,
+			"dbname" => DB_NAME,
+			"user" => DB_USER,
+			"password" => DB_PASS
+		);
+	}
+	/**
+	 * 配置(横)
+	 *
+	 * @return array 配置(横)連想配列
+	 */
+	public static function align() : array {
+		return array(
+			"left" => "左寄せ",
+			"center" => "中央",
+			"right" => "右寄せ"
+		);
+	}
+	/**
+	 * カードブランド
+	 *
+	 * @return array カードブランド連想配列
+	 */
+	public static function cardType() : array {
+		return array(
+			"visa" => "VISA",
+			"master" => "MasterCard",
+			"diners" => "Diners Club",
+			"jcb" => "JCB",
+			"amex" => "AMERICAN EXPRESS"
+		);
+	}
+	/**
+	 * 記事のカテゴリー
+	 *
+	 * @return array 記事のカテゴリー連想配列
+	 */
+	public static function category() : array {
+		return array(
+			"1" => "カテゴリー１",
+			"2" => "カテゴリー２"
+		);
+	}
+	/**
+	 * コンビニ
+	 *
+	 * @return array コンビニ連想配列
+	 */
+	public static function convType() : array {
+		return array(
+			"lawson" => "ローソン",
+			"famima" => "ファミリーマート",
+			"secoma" => "セイコーマート",
+			"ministop" => "ミニストップ",
+			"seven" => "セブンイレブン",
+			"circlek" => "サークルK",
+			"sunkus" => "サンクス"
+		);
+	}
+	/**
+	 * 日付範囲
+	 *
+	 * @return array 日付範囲連想配列
+	 */
+	public static function dateRange() : array {
+		return array(
+			"currentWeek" => "今週",
+			"prevWeek" => "先週",
+			"currentWeekRange" => "1週間前～当日",
+			"prevWeekRange" => "2週間前～1週間前",
+			"currentMonth" => "当月",
+			"prevMonth" => "先月",
+			"prevYearMonth" => "前年の同月",
+			"currentMonthRange" => "1ヶ月前～当日",
+			"prevMonthRange" => "2ヶ月前～1ヶ月前",
+			"current2MonthRange" => "2ヶ月前～当日",
+			"prev2MonthRange" => "4ヶ月前～2ヶ月前",
+			"current3MonthRange" => "3ヶ月前～当日",
+			"prev3MonthRange" => "6ヶ月前～3ヶ月前"
+		);
+	}
+	/**
+	 * 曜日祝日
+	 *
+	 * @return array 曜日祝日連想配列
+	 */
+	public static function dayname() : array {
+		return array(
+			"0" => "日",
+			"1" => "月",
+			"2" => "火",
+			"3" => "水",
+			"4" => "木",
+			"5" => "金",
+			"6" => "土",
+			"h" => "祝"
+		);
+	}
+	/**
+	 * USEディレクティブ
+	 *
+	 * @return array USEディレクティブ連想配列
+	 */
+	public static function dir() : array {
+		return array(
+			"Filter" => "Filter",
+			"Fixed" => "Fixed",
+			"Rule" => "Rule",
+			"DAC" => "DAC",
+			"Pager" => "Pager",
+			"Tag" => "Tag",
+			"MailClass" => "MailClass",
+			"FileClass" => "FileClass",
+			"Trace" => "Trace",
+			"Image" => "Image",
+			"Media" => "Media",
+			"MediaEx" => "MediaEx",
+			"App" => "App",
+			"Builder" => "Builder",
+			"Translator" => "Translator",
+			"Chart" => "Chart",
+			"Shop" => "Shop",
+			"Calendar" => "Calendar",
+			"Epsilon" => "Epsilon",
+			"Kuroneko" => "Kuroneko",
+			"PayPal" => "PayPal"
+		);
+	}
+	/**
+	 * 直接編集可能なファイル
+	 *
+	 * @return array 直接編集可能なファイル連想配列
+	 */
+	public static function editFiles() : array {
+		return array(
+			"common.css" => "css/common.css",
+			"function.js" => "js/function.js"
+		);
+	}
+	/**
+	 * パーツ埋め込み種別
+	 *
+	 * @return array パーツ埋め込み種別連想配列
+	 */
+	public static function embedType() : array {
+		return array(
+			"list" => "リスト表示",
+			"detail" => "詳細表示"
+		);
+	}
+	/**
+	 * エラーメッセージ
+	 *
+	 * @return array エラーメッセージ連想配列
+	 */
+	public static function error() : array {
+		return array(
+			"required" => "入力して下さい。"
+		);
+	}
+	/**
+	 * Flexbox Direction値
+	 *
+	 * @return array Flexbox Direction値連想配列
+	 */
+	public static function flexLayout() : array {
+		return array(
+			"row" => "横並び",
+			"column" => "縦並び"
+		);
+	}
+	/**
+	 * フロート設定
+	 *
+	 * @return array フロート設定連想配列
+	 */
+	public static function float() : array {
+		return array(
+			"left" => "左",
+			"right" => "右",
+			"none" => "なし"
+		);
+	}
+	/**
+	 * フォーム項目種別
+	 *
+	 * @return array フォーム項目種別連想配列
+	 */
+	public static function formCellType() : array {
+		return array(
+			"email" => "Eメールアドレス",
+			"name" => "宛名入力",
+			"kana" => "宛名カナ入力",
+			"tel" => "電話番号入力",
+			"addr" => "住所入力",
+			"date" => "日付入力",
+			"number" => "数値入力",
+			"text" => "テキストボックス",
+			"radio" => "ラジオボタン",
+			"checkbox" => "チェックボックス",
+			"select" => "セレクトボックス",
+			"textarea" => "テキストエリア",
+			"file" => "ファイル"
+		);
+	}
+	/**
+	 * サイトマップXML 更新頻度
+	 *
+	 * @return array サイトマップXML 更新頻度連想配列
+	 */
+	public static function freq() : array {
+		return array(
+			"always" => "アクセスする度",
+			"hourly" => "1時間毎",
+			"daily" => "毎日",
+			"weekly" => "1週間毎",
+			"monthly" => "1ヶ月毎",
+			"yearly" => "1年毎"
+		);
+	}
+	/**
+	 * 画像の効果
+	 *
+	 * @return array 画像の効果連想配列
+	 */
+	public static function imageFilter() : array {
+		return array(
+			"IMG_FILTER_NEGATE" => "色の反転",
+			"IMG_FILTER_GRAYSCALE" => "グレースケール",
+			"IMG_FILTER_BRIGHTNESS" => "輝度",
+			"IMG_FILTER_CONTRAST" => "コントラスト",
+			"IMG_FILTER_COLORIZE" => "カラー",
+			"IMG_FILTER_EDGEDETEC" => "エッジ",
+			"IMG_FILTER_EMBOSS" => "エンボス",
+			"IMG_FILTER_GAUSSIAN_BLUR" => "ガウス",
+			"IMG_FILTER_SELECTIVE_BLUR" => "ぼかし",
+			"IMG_FILTER_MEAN_REMOVAL" => "スケッチ",
+			"IMG_FILTER_SMOOTH" => "滑らか"
+		);
+	}
+	/**
+	 * itextオプション
+	 *
+	 * @return array itextオプション連想配列
+	 */
+	public static function itext() : array {
+		return array(
+			"text" => "テキスト",
+			"image" => "画像",
+			"itext" => "画像＋テキスト"
+		);
+	}
+	/**
+	 * 変換設定
+	 *
+	 * @return array 変換設定連想配列
+	 */
+	public static function kana() : array {
+		return array(
+			"1" => "変換を選択する",
+			"2" => "変換を入力する",
+			"3" => "変換しない"
+		);
+	}
+	/**
+	 * 変換の選択
+	 *
+	 * @return array 変換の選択連想配列
+	 */
+	public static function kanaCheck() : array {
+		return array(
+			"as" => "半角英数字",
+			"AS" => "全角英数字",
+			"khs" => "半角カナ",
+			"KVCS" => "全角カナ",
+			"HVcS" => "全角かな"
+		);
+	}
+	/**
+	 * 言語コード
+	 *
+	 * @return array 言語コード連想配列
+	 */
+	public static function language() : array {
+		return array(
+			"af" => "Afrikaans",
+			"ar" => "Arabic",
+			"bs-Latn" => "Bosnian (Latin)",
+			"bg" => "Bulgarian",
+			"ca" => "Catalan",
+			"zh-CHS" => "Chinese Simplified",
+			"zh-CHT" => "Chinese Traditional",
+			"hr" => "Croatian",
+			"cs" => "Czech",
+			"da" => "Danish",
+			"nl" => "Dutch",
+			"en" => "English",
+			"et" => "Estonian",
+			"fi" => "Finnish",
+			"fr" => "French",
+			"de" => "German",
+			"el" => "Greek",
+			"ht" => "Haitian Creole",
+			"he" => "Hebrew",
+			"hi" => "Hindi",
+			"mww" => "Hmong Daw",
+			"hu" => "Hungarian",
+			"id" => "Indonesian",
+			"it" => "Italian",
+			"ja" => "Japanese",
+			"sw" => "Kiswahili",
+			"tlh" => "Klingon",
+			"tlh-Qaak" => "Klingon (pIqaD)",
+			"ko" => "Korean",
+			"lv" => "Latvian",
+			"lt" => "Lithuanian",
+			"ms" => "Malay",
+			"mt" => "Maltese",
+			"no" => "Norwegian",
+			"fa" => "Persian",
+			"pl" => "Polish",
+			"pt" => "Portuguese",
+			"otq" => "Queretaro Otomi",
+			"ro" => "Romanian",
+			"ru" => "Russian",
+			"sr-Cyrl" => "Serbian (Cyrillic)",
+			"sr-Latn" => "Serbian (Latin)",
+			"sk" => "Slovak",
+			"sl" => "Slovenian",
+			"es" => "Spanish",
+			"sv" => "Swedish",
+			"th" => "Thai",
+			"tr" => "Turkish",
+			"uk" => "Ukrainian",
+			"ur" => "Urdu",
+			"vi" => "Vietnamese",
+			"cy" => "Welsh",
+			"yua" => "Yucatec Maya"
+		);
+	}
+	/**
+	 * UL LI 並び
+	 *
+	 * @return array UL LI 並び連想配列
+	 */
+	public static function liFloat() : array {
+		return array(
+			"left" => "左寄せ横並び",
+			"right" => "右寄せ横並び",
+			"none" => "縦並び"
+		);
+	}
+	/**
+	 * UL LI マーカー
+	 *
+	 * @return array UL LI マーカー連想配列
+	 */
+	public static function liMarker() : array {
+		return array(
+			"none" => "なし",
+			"disc" => "黒丸",
+			"circle" => "白丸",
+			"decimal" => "数値",
+			"lower-latin" => "アルファベット（小文字）",
+			"upper-latin" => "アルファベット（大文字）"
+		);
+	}
+	/**
+	 * メール受付状態
+	 *
+	 * @return array メール受付状態連想配列
+	 */
+	public static function mailStatus() : array {
+		return array(
+			"0" => "未読",
+			"1" => "既読",
+			"2" => "返信済み",
+			"3" => "返答待ち",
+			"4" => "キャンセル",
+			"5" => "予約確定"
+		);
+	}
+	/**
+	 * メルマガ配信日程
+	 *
+	 * @return array メルマガ配信日程連想配列
+	 */
+	public static function mailType() : array {
+		return array(
+			"1" => "指定日",
+			"2" => "誕生日",
+			"3" => "毎月",
+			"4" => "毎週"
+		);
+	}
+	/**
+	 * CSSメディア
+	 *
+	 * @return array CSSメディア連想配列
+	 */
+	public static function media() : array {
+		return array(
+			"pc" => "ワイドモニター",
+			"tb" => "タブレット",
+			"sp" => "スマートフォン"
+		);
+	}
+	/**
+	 * 受注ステータス
+	 *
+	 * @return array 受注ステータス連想配列
+	 */
+	public static function orderStatus() : array {
+		return array(
+			"0" => "未完了",
+			"1" => "受注",
+			"2" => "入金確認",
+			"3" => "発送準備",
+			"4" => "発送済み（未入金）",
+			"5" => "発送済み（入金済み）"
+		);
+	}
+	/**
+	 * 制約設定
+	 *
+	 * @return array 制約設定連想配列
+	 */
+	public static function pattern() : array {
+		return array(
+			"4" => "危険文字を除去",
+			"1" => "制約を選択する",
+			"2" => "制約を入力する",
+			"3" => "制約しない"
+		);
+	}
+	/**
+	 * 制約の選択
+	 *
+	 * @return array 制約の選択連想配列
+	 */
+	public static function patternCheck() : array {
+		return array(
+			"0-9" => "数字",
+			"a-z" => "英小文字",
+			"A-Z" => "英大文字",
+			"_" => "半角アンダースコア",
+			"@" => "半角アットマーク",
+			"." => "半角ドット",
+			"\-" => "半角ハイフン",
+			"/" => "半角スラッシュ"
+		);
+	}
+	/**
+	 * 決済タイプ
+	 *
+	 * @return array 決済タイプ連想配列
+	 */
+	public static function paymentType() : array {
+		return array(
+			"cash" => "代引き",
+			"bank" => "銀行振り込み",
+			"card" => "Epsilon クレジットカード決済",
+			"conv" => "Epsilon コンビニ決済",
+			"kuro" => "クロネコwebコレクト",
+			"paypal" => "PayPal ペイパル",
+			"other" => "その他"
+		);
+	}
+	/**
+	 * 都道府県
+	 *
+	 * @return array 都道府県連想配列
+	 */
+	public static function pref() : array {
+		return array(
+			"北海道" => "北海道",
+			"青森県" => "青森県",
+			"岩手県" => "岩手県",
+			"宮城県" => "宮城県",
+			"秋田県" => "秋田県",
+			"山形県" => "山形県",
+			"福島県" => "福島県",
+			"茨城県" => "茨城県",
+			"栃木県" => "栃木県",
+			"群馬県" => "群馬県",
+			"埼玉県" => "埼玉県",
+			"千葉県" => "千葉県",
+			"東京都" => "東京都",
+			"神奈川県" => "神奈川県",
+			"新潟県" => "新潟県",
+			"富山県" => "富山県",
+			"石川県" => "石川県",
+			"福井県" => "福井県",
+			"山梨県" => "山梨県",
+			"長野県" => "長野県",
+			"岐阜県" => "岐阜県",
+			"静岡県" => "静岡県",
+			"愛知県" => "愛知県",
+			"三重県" => "三重県",
+			"滋賀県" => "滋賀県",
+			"京都府" => "京都府",
+			"大阪府" => "大阪府",
+			"兵庫県" => "兵庫県",
+			"奈良県" => "奈良県",
+			"和歌山県" => "和歌山県",
+			"鳥取県" => "鳥取県",
+			"島根県" => "島根県",
+			"岡山県" => "岡山県",
+			"広島県" => "広島県",
+			"山口県" => "山口県",
+			"徳島県" => "徳島県",
+			"香川県" => "香川県",
+			"愛媛県" => "愛媛県",
+			"高知県" => "高知県",
+			"福岡県" => "福岡県",
+			"佐賀県" => "佐賀県",
+			"長崎県" => "長崎県",
+			"熊本県" => "熊本県",
+			"大分県" => "大分県",
+			"宮崎県" => "宮崎県",
+			"鹿児島県" => "鹿児島県",
+			"沖縄県" => "沖縄県"
+		);
+	}
+	/**
+	 * リクルート規定の入力項目
+	 *
+	 * @return array リクルート規定の入力項目連想配列
+	 */
+	public static function recruitCellType() : array {
+		return array(
+			"name" => "氏名（宛名）",
+			"kana" => "氏名（宛名カナ）",
+			"birthday" => "生年月日",
+			"gender" => "性別",
+			"country" => "本籍地",
+			"main_mail" => "E-mail（メール送信先）",
+			"ship_addr" => "住所（送付先）",
+			"ship_tel" => "電話番号（送付先）",
+			"experience" => "経験",
+			"photo" => "写真"
+		);
+	}
+	/**
+	 * 応募ステータス
+	 *
+	 * @return array 応募ステータス連想配列
+	 */
+	public static function recruitStatus() : array {
+		return array(
+			"0" => "応募",
+			"1" => "確認済",
+			"2" => "要連絡",
+			"3" => "連絡済",
+			"4" => "保留",
+			"5" => "一次面接",
+			"6" => "二次面接",
+			"7" => "採用",
+			"8" => "不採用"
+		);
+	}
+	/**
+	 * background-repeat
+	 *
+	 * @return array background-repeat連想配列
+	 */
+	public static function repeat() : array {
+		return array(
+			"repeat" => "repeat",
+			"repeat-x" => "repeat-x",
+			"repeat-y" => "repeat-y",
+			"no-repeat" => "no-repeat"
+		);
+	}
+	/**
+	 * 予約設定
+	 *
+	 * @return array 予約設定連想配列
+	 */
+	public static function reserv() : array {
+		return array(
+			"1" => "日付予約",
+			"2" => "日時予約",
+			"0" => "使用しない"
+		);
+	}
+	/**
+	 * ショップ規定の入力項目
+	 *
+	 * @return array ショップ規定の入力項目連想配列
+	 */
+	public static function shopCellType() : array {
+		return array(
+			"name" => "氏名（宛名）",
+			"kana" => "氏名（宛名カナ）",
+			"main_mail" => "Eメールアドレス（送信先）",
+			"birthday" => "生年月日",
+			"ship_tel" => "電話番号（宛先）",
+			"ship_addr" => "住所（宛先）"
+		);
+	}
+	/**
+	 * メールテンプレートタイプ
+	 *
+	 * @return array メールテンプレートタイプ連想配列
+	 */
+	public static function shopMail() : array {
+		return array(
+			"confirm" => "注文時の自動送信メール",
+			"member" => "メンバー登録時の自動送信メール",
+			"remind" => "パスワードリマインダー",
+			"other" => "その他",
+			"cancel" => "注文キャンセル時の自動送信メール"
+		);
+	}
+	/**
+	 * リスト並び順序
+	 *
+	 * @return array リスト並び順序連想配列
+	 */
+	public static function sortType() : array {
+		return array(
+			"0" => "優先順位順",
+			"1" => "登録昇順",
+			"2" => "登録降順",
+			"3" => "ランダム"
+		);
+	}
+	/**
+	 * テーブルスクロール設定
+	 *
+	 * @return array テーブルスクロール設定連想配列
+	 */
+	public static function tableScroll() : array {
+		return array(
+			"normal" => "通常",
+			"block" => "ブロック",
+			"scroll" => "スクロール"
+		);
+	}
+	/**
+	 * リンクターゲット
+	 *
+	 * @return array リンクターゲット連想配列
+	 */
+	public static function target() : array {
+		return array(
+			"_self" => "SELF",
+			"_blank" => "別ウィンドウ"
+		);
+	}
+	/**
+	 * テンプレート
+	 *
+	 * @return array テンプレート連想配列
+	 */
+	public static function template() : array {
+		return array(
+			"header" => "ヘッダー",
+			"footer" => "フッター",
+			"parts" => "パーツ"
+		);
+	}
+	/**
+	 * テーブルセル種別
+	 *
+	 * @return array テーブルセル種別連想配列
+	 */
+	public static function textType() : array {
+		return array(
+			"plain" => "プレーンテキスト",
+			"sum_column" => "列の合計",
+			"sum_row" => "行の合計"
+		);
+	}
+	/**
+	 * 水平位置
+	 *
+	 * @return array 水平位置連想配列
+	 */
+	public static function valign() : array {
+		return array(
+			"top" => "上寄せ",
+			"middle" => "中央",
+			"bottom" => "下寄せ"
+		);
+	}
+	/**
+	 * 表示設定
+	 *
+	 * @return array 表示設定連想配列
+	 */
+	public static function visible() : array {
+		return array(
+			"1" => "表示する",
+			"0" => "表示しない"
+		);
+	}
+	/**
+	 * 曜日
+	 *
+	 * @return array 曜日連想配列
+	 */
+	public static function week() : array {
+		return array(
+			"sun" => "日曜日",
+			"mon" => "月曜日",
+			"tue" => "火曜日",
+			"wed" => "水曜日",
+			"thu" => "木曜日",
+			"fri" => "金曜日",
+			"sat" => "土曜日"
+		);
+	}
+	/**
+	 * 0から始まる曜日
+	 *
+	 * @return array 0から始まる曜日連想配列
+	 */
+	public static function week2() : array {
+		return array(
+			"0" => "日曜日",
+			"1" => "月曜日",
+			"2" => "火曜日",
+			"3" => "水曜日",
+			"4" => "木曜日",
+			"5" => "金曜日",
+			"6" => "土曜日"
+		);
+	}
+	/**
+	 * 週回設定
+	 *
+	 * @return array 週回設定連想配列
+	 */
+	public static function weekCount() : array {
+		return array(
+			"first" => "第１",
+			"second" => "第２",
+			"third" => "第３",
+			"fourth" => "第４",
+			"fifth" => "第５"
+		);
+	}
+}

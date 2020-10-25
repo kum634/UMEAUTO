@@ -1,0 +1,451 @@
+<?php require_once("index.html.class"); ?>
+<!doctype html><html>
+<head>
+  <meta charset="utf-8">
+  <title>ウメオート</title>
+  <meta name="format-detection" content="telephone=no,noindex,nofollow,noarchive">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no">
+  <link href="<?= $page->path ?>css/common.css" rel="stylesheet" type="text/css">
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.0.13/css/all.css" integrity="sha384-DNOHZ68U8hZfKXOrtjWvjxusGo9WQnrNx2sqG0tfsghAvtVlRW3tvkXWZh58N9jp" crossorigin="anonymous">
+  <link href="js/bxslider/jquery.bxslider.css" rel="stylesheet" type="text/css">
+  <script type="text/javascript" src="js/jquery-3.3.1.min.js"></script> 
+  <script type="text/javascript" src="js/bxslider/jquery.bxslider.min.js"></script>
+  <script type="text/javascript" src="js/jquery-validation-1.11.1/dist/jquery.validate.js"></script>
+  <script type="text/javascript" src="js/jquery-validation-1.11.1/localization/messages_ja.js"></script>
+  <script type="text/javascript">
+  $(function(){
+    $('.bxslider').bxSlider({
+      auto: true,
+      pause: 4000,
+      speed: 1000,
+      pager: false,
+      controls: false,
+      captions: false,
+      randomStart: true,
+      infiniteLoop: true,
+      responsive: true
+    });
+  });
+  </script>
+</head>
+<body>
+  <div class="wrapper row1">
+    <header id="main_header">
+      <div class="view-pc container clearfix">
+        <div class="header_logo">
+          <!--<h1>淡路島で出張整備なら</h1>-->
+          <!--<p class="top-logo"><a href="index.html">ウメオート</a></p>-->
+          <p>淡路島で出張整備なら</p>
+          <h1 class="top-logo"><a href="index.html">ウメオート</a></h1>
+        </div>
+        <div class="pr_space">
+          <p class="model-muryo">整備モデル募集中!<br>
+            初めてご利用の方なら工賃無料</p>
+          <p><a class="header-seibi-form" href="request.html">整備依頼はこちら　<i class="fas fa-mouse-pointer"></i></a></p>
+        </div>
+      </div>
+      <!-- スマホ　↓　～767px-->
+      <div class="container view-st inlinestart"> <i id="open_menu" class="fas fa-bars"></i>
+        <nav id="menu"> <i id="close_menu" class="fas fa-times"></i>
+          <ul>
+            <li><a href="shop.html">会社案内 </a></li>
+            <li><a href="service.html">サービスメニュー </a></li>
+            <li><a href="process.html">出張整備の流れ </a></li>
+            <li><a href="qa.html">出張整備Q&amp;A </a></li>
+            <li><a href="sell.html">中古部品販売</a></li>
+            <li><a href="contact.html">お問い合わせ </a></li>
+          </ul>
+        </nav>
+        <!--<h1 class="catchcopy">淡路島で出張整備なら</h1>-->
+        <!--<p class="top-logo"><a href="index.html">ウメオート</a></p>-->
+        <p class="catchcopy">淡路島で出張整備なら</p>
+        <h1 class="top-logo"><a href="index.html">ウメオート</a></h1>
+      </div>
+      <!-- スマホ　↑　～767px--> 
+      <div class="loader">Loading...</div>
+    </header>
+  </div>
+  <div class="wrapper row2 view-pc container">
+    <nav id="g_navi" class="view-pc">
+      <ul class="view-pc">
+        <li><a href="shop.html">会社案内 </a></li>
+        <li><a href="service.html">サービスメニュー </a></li>
+        <li><a href="process.html">出張整備の流れ </a></li>
+        <li><a href="qa.html">出張整備Q&amp;A </a></li>
+        <li><a href="sell.html">中古部品販売</a></li>
+        <li><a href="contact.html">お問い合わせ </a></li>
+      </ul>
+    </nav>
+  </div>
+  <div class="wrapper_visual">
+    <div class="wrapper row3">
+      <div class="mainvisual">
+        <ul class="bxslider" >
+          <li><img src="images/mv1.jpg"></li>
+          <li><img src="images/mv2.jpg"></li>
+          <li><img src="images/mv3.jpg"></li>
+          <li><img src="images/mv4.jpg"></li>
+          <li><img src="images/mv5.jpg"></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="wrapper row4">
+    <main class="clearfix mb40">
+      <div class="container">
+        <nav class="wrap crumbs">
+          <ul>
+            <?php if(!strpos($_SERVER['REQUEST_URI'],"index.html")) { ?>
+            <li><a href="index.html" title="brise">ウメオート</a></li>
+            <?= $page->crumbs ?>
+            <?php } ?>
+          </ul>
+        </nav>
+        <article id="main_contents">
+<style>
+@charset "utf-8";
+/* CSS Document */
+.bxslider li {
+  width: 100%;
+  height: auto;
+}
+.bxslider img {
+  margin: 0 auto;
+  width: 100%;
+}
+.mainvisual {
+  display:block !important;
+}
+#main_contents {
+  float: none !important;
+  width: 100%;
+  margin: 0 auto;
+}
+#side_contents {
+  display: none !important;
+}
+.pr_title {
+  text-align: center;
+  padding-bottom: 10px;
+  color: #333;
+  font-weight: normal;
+  border-bottom: solid 1px #333;
+  display: block;
+  width: 60%;
+}
+section {
+  background: #ECEFF1;
+  margin-bottom: 30px;
+}
+.yasu {
+  text-align: right;
+  position: relative
+}
+.news-backg {
+  background: #FFF;
+}
+.news-ul {
+  overflow: auto;
+  height: 150px;
+  border: 1px solid #B0BEC5;
+  list-style-type: square;
+  padding: 10px 30px;
+}
+.news-li {
+  border-bottom: 1px dotted #B0BEC5;
+  line-height: 30px;
+}
+.news-li span {
+  font-size: italic;
+  color: #D62854;
+  margin-right: 20px;
+}
+.type_list {
+  width: 100%;
+}
+.type_list section {
+  margin-bottom: 0px !important;
+  background: #FFF;
+  padding: 10px 25px !important;
+}
+.type_list ul {
+  list-style: none;
+  display: block;
+  margin: 0 auto;
+  padding: 0;
+}
+.type_list img {
+  display: block;
+}
+.type_list ul li p {
+  text-align: left;
+  font-weight: bold;
+  font-size: 16px;
+}
+.first_character {
+  background: #D62854;
+  color: #FFF;
+  font-size: 1.8rem;
+  padding: 10px;
+  margin-right: 5px;
+  border-radius: 50%;
+  display: inline-block;
+  width: 25px;
+  height: 25px;
+}
+.type_list img:hover {
+  opacity: 0.6;
+}
+.enter_menu a {
+  text-decoration: none;
+  color: #FFF;
+}
+.enter_menu a:hover {
+  text-decoration: underline;
+  color: #FFF;
+}
+@media (min-width : 768px) {
+  .wrapper_visual {
+    width: 100%;
+    background: #ECEFF1;
+  }
+  .row3 {
+    padding: 40px 0px;
+    width: 80%;
+    background: #ECEFF1;
+    max-width: 1215px;
+  }
+  #mainvisual {
+    width: 100%;
+    margin: 0 auto 10px;
+  }
+  section {
+    padding: 30px;
+  }
+  section h2 {
+    background: #FFF;
+    width: 30%;
+    box-shadow: 8px 8px 10px -8px rgba(0,0,0,.3);
+  }
+  .pr_title {
+    font-size: 1.7rem;
+    margin: 40px auto;
+    padding-bottom: 10px;
+  }
+  .pr_text {
+    line-height: 160%;
+    font-size: 1.3rem;
+  }
+  section ul li {
+    font-size: 20px;
+    line-height: 30px;
+  }
+  .type_list li {
+    width: 23%;
+    font-size: 1rem;
+    display: table-cell;
+  }
+  .type_list .enter_menu {
+    margin: 30px auto;
+    width: 50%;
+    max-width: 500px;
+    padding: 15px;
+  }
+}
+@media (max-width : 767px) {
+  .row3 {
+    background: #ECEFF1;
+    padding: 0px;
+    width: 100%;
+  }
+  #mainvisual {
+    width: 86%;
+    margin: 0 auto;
+  }
+  section {
+    padding: 10px;
+  }
+  section ul li {
+    font-size: 15px;
+    line-height: 25px;
+  }
+  section h2 {
+    background: #FFF;
+    width: 170px;
+    box-shadow: 8px 8px 10px -8px rgba(0,0,0,.3);
+  }
+  .type_list li {
+    font-size: 1rem;
+  }
+  .type_list .enter_menu {
+    margin: 20px auto;
+    width: 50%;
+    padding: 15px;
+  }
+  .type_list section {
+    margin-bottom: 0px !important;
+    background: #FFF;
+  }
+  .pr_title {
+    font-size: 3vw;
+    margin: 20px auto;
+    padding-bottom: 8px;
+  }
+  .pr_text {
+    font-size: 2vw;
+  }
+}
+#main_contents > section.calendar {
+  padding: 10px 20px;
+  background: #ECEFF1;
+}
+#main_contents > section.calendar span {
+  font-weight: bold;
+}
+#main_contents > section.calendar span.round {
+  color: blue;
+}
+#main_contents > section.calendar span.triangle {
+  color: green;
+}
+#main_contents > section.calendar span.cross {
+  color: red;
+}
+#main_contents > section.calendar ul:nth-of-type(1) {
+  margin: 20px 0 0 0;
+  padding: 0;
+  display: flex;
+  list-style-type: none;
+  justify-content: space-around;
+  font-size: 18px;
+  font-weight: bold;
+}
+#main_contents > section.calendar ul li a {
+  text-decoration: none;
+  display: block;
+  color: #D62854;
+} 
+#main_contents > section.calendar ul:nth-of-type(2) {
+  padding: 0;
+  list-style-position: inside;
+}
+table {
+    width: 100%;
+}
+table th {
+  background: #D62854;
+  color: #FFF;
+}
+table th,
+table td {
+    border: 1px solid #CCCCCC;
+    text-align: center;
+    padding: 5px;
+}
+table td {
+  background: #88ceff;
+}
+table td:nth-of-type(3),
+table td:nth-of-type(4) {
+  background: #ff88a6;
+}
+</style>
+<!---->
+          <?php include("{$page->path}tmp/calendar.tmp"); ?>
+          <section style="background: #FFF">
+            <p class="pr_title">地元密着型出張整備専門サービス</p>
+            <p class="pr_text">ウメオートは、淡路島内なら沼島を除きどこでも出張料無料の出張整備専門サービスです。整備モデル募集中につき、初めてご利用の方なら工賃も無料。２回目以降は工賃が発生しますが、代表者自身の実務経験が約２年と短い且つ認証を取得していないという理由から、出来る作業が限られているため工賃を他社平均の30%OFFを目標に格安でご提供させて頂いております。他社と比べて劣る点も多いですが、ご理解頂ける方は是非弊社の出張整備をご利用ください。</p>
+          </section>
+          <section>
+            <h2>弊社の特徴</h2>
+            <ul>
+              <li>淡路島なら沼島を除きどこでも<strong>出張料無料!</strong></li>
+              <li>整備モデル募集中につき、初めてご利用の方なら<strong>工賃無料！</strong></li>
+              <li>工賃は他社平均の<strong>30%OFF</strong>を目標にしています!</li>
+              <li>自動車だけでなく、<strong>二輪車もOK!</strong></li>
+              <li>取り付け部品はご自身でご用意頂いてもOK!</li>
+            </ul>
+          </section>
+          <section>
+            <h2>格安工賃の理由</h2>
+            <ul>
+              <li>代表者自身の実務経験が約２年と比較的短く、ベテランの整備士の方に比べて<strong>技術が未熟</strong>なため</li>
+              <li>弊社は認証を取得しておらず、<strong>出来る作業が限られている</strong>ため</li>
+              <li><strong>サービスメニューのラインナップが少ない</strong>ため</li>
+              <li>代車の貸し出し及び実車の移送業務を行っていないため</li>
+            </ul>
+            <p class="yasu">以上の理由からお安くさせて頂きます。</p>
+            <p style="margin-bottom: 0;"><a class="formbtn" href="request.html">整備依頼はこちら　<i class="fas fa-mouse-pointer"></i></a></p>
+          </section>
+          <section style="background: #FFF">
+            <div class="type_list">
+              <p class="pr_title">ご提供できるサービス</p>
+              <ul style="background: #FFF;">
+                <li class="maintenance">
+                  <section>
+                    <p><span class="first_character">メ</span>ンテナンス</p>
+                    <p><a href="service.html#maitenance"><img src="images/type1.jpg" width="100%" alt="maintenance"/></a></p>
+                    <p></p>
+                  </section>
+                </li>
+                <li class="replacement">
+                  <section>
+                    <p><span class="first_character">部</span>品交換</p>
+                    <p><a href="service.html#replacement"><img src="images/type2.jpg" width="100%" alt="replacement"/></a></p>
+                    <p></p>
+                  </section>
+                </li>
+              </ul>
+              <ul>
+                <li class="option">
+                  <section>
+                    <p><span class="first_character">オ</span>プション品取付</p>
+                    <p><a href="service.html#option"><img src="images/type3.jpg" width="100%" alt="option"/></a></p>
+                    <p></p>
+                  </section>
+                </li>
+                <li class="motorcycle">
+                  <section>
+                    <p><span class="first_character">二</span>輪整備</p>
+                    <p><a href="service.html#motorcycle"><img src="images/type4.jpg" width="100%" alt="motorcycle"/></a></p>
+                    <p></p>
+                  </section>
+                </li>
+              </ul>
+            </div>
+          </section>
+          <div class="news-backg">
+            <h2>更新情報</h2>
+            <ul class="news-ul">
+              <li class="news-li"><span>2020.10.19</span>本日より休業します。業務再開時期は未定です。</li>
+              <li class="news-li"><span>2020.10.11</span>ホームページが出来ました。</li>
+            </ul>
+          </div>
+<!-- -->
+        </article>
+      </div>
+    </main>
+  </div>
+  <div class="wrapper row5">
+    <nav id="menu_f" class="fixedform view-st"> <i id="close_menu_f" class="fas fa-times"></i>
+      <h1>整備モデル募集中!<br>
+        初めてご利用の方なら工賃無料</h1>
+      <p><a class="formbtn_fixedform" href="request.html">整備依頼はこちら　<i class="fas fa-mouse-pointer"></i></a></p>
+    </nav>
+    <footer id="main_footer">
+      <ul>
+        <li><a href="shop.html">会社案内 </a></li>
+        <li><a href="service.html">サービスメニュー </a></li>
+        <li><a href="process.html">出張整備の流れ </a></li>
+        <li><a href="qa.html">出張整備Q&amp;A </a></li>
+        <li><a href="sell.html">中古部品販売</a></li>
+        <li><a href="contact.html">お問い合わせ </a></li>
+        <li><a href="sitemap.html">サイトマップ</a></li>
+      </ul>
+      <p> Copyright (C)2020ウメオートAll Rights Reserved. </p>
+    </footer>
+  </div>
+  <script type="text/javascript" src="<?= $page->path ?>js/burger_menu.js"></script>
+  <script type="text/javascript" src="<?= $page->path ?>js/advertising.js"></script>
+</body>
+</html>

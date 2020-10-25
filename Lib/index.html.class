@@ -1,0 +1,186 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * インディックスページクラス
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2020 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.200303
+ */
+namespace Lib;
+
+require_once("Conf.inc");
+require_once("Common/Page.class");
+require_once("Common/DAC.class");
+
+class Page_Index extends Page {
+	/**
+	 * 
+	 */
+	public function default() {
+		Lib::authPage($this);
+
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		try {
+			$dac->open();
+			// note: テンプレートテーブル
+			$dac->command = "Show Columns From t_template";
+			$rows = $dac->query();
+			foreach ($rows as $row) $columns[] = $row["Field"];
+			// note: 170822 テンプレートファイル名追加
+			if (!in_array("file_name", $columns)) {
+				$dac->command = "Alter Table t_template Add Column file_name varchar(100) Not Null";
+				$dac->execute();
+			}
+			// added: 170907 テンプレート、CSSに保存先追加
+			if (!in_array("file_path", $columns)) {
+				$dac->begin();
+				$dac->command = "Alter Table t_template Add Column file_path varchar(100) Not Null";
+				$dac->execute();
+				$dac->command = "Alter Table t_css Add Column file_path varchar(100) Not Null";
+				$dac->execute();
+				$dac->commit();
+			}
+
+			// added: 171019 ページテーブル
+			$dac->command = "Show Columns From t_page";
+			$rows = $dac->query();
+			foreach ($rows as $row) $columns[] = $row["Field"];
+			// added: 171019 post_files追加
+			if (!in_array("post_files", $columns)) {
+				$dac->command = "Alter Table t_page Add Column post_files tinyint(1) Not Null";
+				$dac->execute();
+			}
+			// added: 191221 style, script追加
+			if (!in_array("style", $columns)) {
+				$dac->command = "Alter Table t_page Add Column style text;";
+				$dac->command.= "Alter Table t_page Add Column script text;";
+				$dac->execute();
+			}
+
+			// note: テーブルリスト
+			$dac->command = "Show Tables";
+			$rows = $dac->query();
+			foreach ($rows as $row) $tables[] = reset($row);
+			// added: 170907 JSテーブル追加
+			if (!in_array("t_js", $tables)) {
+				$dac->command = "CREATE TABLE `t_js` (
+						`ROWID` int(11) NOT NULL AUTO_INCREMENT,
+						`js_name` varchar(20) NOT NULL,
+						`file_path` varchar(100) NOT NULL,
+						`content` text NOT NULL,
+						`tm_create` datetime NOT NULL,
+						`tm_update` datetime NOT NULL,
+						`user_id` varchar(20) NOT NULL,
+						`is_locked` tinyint(1) NOT NULL,
+						PRIMARY KEY (`ROWID`)
+					) ENGINE=InnoDB  DEFAULT CHARSET=utf8";
+				$dac->execute();
+			}
+		} catch (Exception $ex) {
+			$this->errors["message"] = $ex->getMessage();
+			return true;
+		} finally {
+			$dac->close();
+		}
+	}
+	/**
+	 * Ajaxアクセスに対しJSリストを出力する
+	 */
+	public function loadJS() {
+		Lib::authPage($this);
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setColumn("ROWID, js_name, file_path, is_locked");
+		$dac->setOrder("js_name");
+		$dac->selectRows("t_js", $rows) or die("FAILURE:{$dac->message}");
+		
+		foreach ($rows as $row) {
+			$path = ($row["file_path"]) ? "{$row["file_path"]}/{$row["js_name"]}.js" : "css/{$row["js_name"]}.js";
+			$lock = ($row["is_locked"]) ? " class=\"lock\"" : "";
+			$res["html"].= "<li><a href=\"js.html?ROWID={$row["ROWID"]}\"{$lock}>{$path}</a></li>";
+		}
+		$this->response($res, true);
+	}
+	/**
+	 * Ajaxアクセスに対しCSSリストを出力する
+	 */
+	public function loadCSS() {
+		Lib::authPage($this);
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setColumn("ROWID, css_name, file_path, is_locked");
+		$dac->setOrder("css_name");
+		$dac->selectRows("t_css", $rows) or die("FAILURE:{$dac->message}");
+		
+		foreach ($rows as $row) {
+			$path = ($row["file_path"]) ? "{$row["file_path"]}/{$row["css_name"]}.css" : "css/{$row["css_name"]}.css";
+			$lock = ($row["is_locked"]) ? " class=\"lock\"" : "";
+			$res["html"].= "<li><a href=\"css.html?ROWID={$row["ROWID"]}\"{$lock}>{$path}</a></li>";
+		}
+		$this->response($res, true);
+	}
+	/**
+	 * Ajaxアクセスに対しテンプレートリストを出力する
+	 */
+	public function loadTemp() {
+		Lib::authPage($this);
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setColumn("ROWID, tl_name, is_locked");
+		$dac->setOrder("tl_name");
+		$dac->selectRows("t_template", $rows) or die("FAILURE:{$dac->message}");
+		
+		foreach ($rows as $row) {
+			$lock = ($row["is_locked"]) ? " class=\"lock\"" : "";
+			$res["html"].= "<li><a href=\"template.html?ROWID={$row["ROWID"]}\"{$lock}>{$row["tl_name"]}</a></li>";
+		}
+		$this->response($res, true);
+	}
+	/**
+	 * Ajaxアクセスに対しページリストを出力する
+	 */
+	public function loadPage() {
+		Lib::authPage($this);
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setColumn("ROWID, page_name, is_locked");
+		$dac->setOrder("page_name");
+		$dac->selectRows("t_page", $rows) or die("FAILURE:{$dac->message}");
+		
+		foreach ($rows as $row) {
+			$lock = ($row["is_locked"]) ? " class=\"lock\"" : "";
+			$res["html"].= "<li><a href=\"page.html?ROWID={$row["ROWID"]}\"{$lock}>{$row["page_name"]}</a></li>";
+		}
+		$this->response($res, true);
+	}
+	/**
+	 * Ajaxアクセスに対しユーザーリストを出力する
+	 */
+	public function loadUser() {
+		Lib::authPage($this);
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setColumn("ROWID, user_name");
+		$dac->setOrder("user_name");
+		$dac->selectRows("t_user", $rows) or die("FAILURE:{$dac->message}");
+		
+		foreach ($rows as $row) {
+			$res["html"].= "<li><a href=\"user.html?ROWID={$row["ROWID"]}\">{$row["user_name"]}</a></li>";
+		}
+		$this->response($res, true);
+	}
+}
+/**
+ * ページインスタンス生成
+ * 実行パス、ルール連想配列及びページセッション名を指定する
+ */
+$page = new Page_Index(__DIR__, null, "Lib.page.index");
+/**
+ * イベント発生時のコールバック関数、移動先及びセッション保存の有無をセットしload()を実行する
+ */
+$page->setEvent("default", null, array($page, "default"), "", false);
+$page->setEvent("action", "load_user", array($page, "loadUser"), "", false);
+$page->setEvent("action", "load_temp", array($page, "loadTemp"), "", false);
+$page->setEvent("action", "load_page", array($page, "loadPage"), "", false);
+$page->setEvent("action", "load_css", array($page, "loadCSS"), "", false);
+// added: 170907
+$page->setEvent("action", "load_js", array($page, "loadJS"), "", false);
+$page->canCrossPagePostBack = true;
+$page->load();

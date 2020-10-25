@@ -1,0 +1,164 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * ページリストページクラス
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2020 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.200419
+ */
+namespace Lib;
+
+require_once("Conf.inc");
+require_once("Common/Page.class");
+require_once("Common/DAC.class");
+
+class Page_Page_List extends Page {
+	public $title;
+	public $rows;
+	/**
+	 * ページ情報獲得
+	 */
+	public function default() {
+		Lib::authPage($this);
+		$this->title = "Pages - ";
+
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setColumn("ROWID, page_name, url, tm_update");
+		$dac->setOrder("page_name");
+		if (!$dac->selectRows("t_page", $rows)) {
+			$this->errors["message"] = $dac->message;
+			return false;
+		}
+		$this->rows = Filter::getEntities($rows);
+		return true;
+	}
+	/**
+	 * ページを複製
+	 */
+	public function copy() {
+		Lib::authPage($this);
+		if (!$_POST["ROWID"]) $this->response("必要な情報が送信されませんでした。", false);
+		
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		try {
+			$dac->open();
+			$dac->setColumn("p.*");
+			$dac->setColumn("h.file_path As header_path , h.file_name As header_name");
+			$dac->setColumn("f.file_path As footer_path , f.file_name As footer_name");
+			$dac->setOption("p.ROWID = [0]", $_POST["ROWID"]);
+			$view = "t_page As p";
+			$view.= " Left Join t_template As h On (p.header_temp = h.ROWID)";
+			$view.= " Left Join t_template As f On (p.footer_temp = f.ROWID)";
+			$rows = $dac->select($view, 1);
+			if (count($rows) == 0) throw new \Exception("ページが存在しません。");
+			$row = $rows[0];
+
+			// note: イベント情報を獲得
+			$dac->clear();
+			$dac->setColumn("*");
+			$dac->setOption("t_page_ROWID = [0]", $_POST["ROWID"]);
+			$events = $dac->select("t_event");
+			
+			// note: ルール情報を獲得
+			$dac->clear();
+			$dac->setColumn("*");
+			$dac->setOption("t_page_ROWID = [0]", $_POST["ROWID"]);
+			$rules = $dac->select("t_rule");
+			
+			$dac->begin();
+
+			// note: ページ情報を上書きして保存
+			$dac->clear();
+			$row["url"] = Filter::getCopyURL($row["url"]);
+			$row["page_name"] = "{$row["page_name"]}のコピー";
+			$row["tm_create"] = date("Y/m/d H:i:s");
+			$row["tm_update"] = date("Y/m/d H:i:s");
+			$row["user_id"] = $_SESSION[DOMAIN]["Lib.user"]["user_id"];
+			$row["is_locked"] = "0";
+			$dac->setDataArray($row, ["ROWID", "header_path", "header_name", "footer_path", "footer_name"]);
+			$dac->insert("t_page");
+			$ROWID = $dac->getSequence();
+
+			// note: イベントコピー
+			foreach ($events as $event) {
+				$dac->clear();
+				$dac->setDataArray($event, ["ROWID", "t_page_ROWID"]);
+				$dac->setData("t_page_ROWID", $ROWID);
+				$dac->insert("t_event");
+			}
+			
+			// note: ルールのコピー
+			foreach ($rules as $rule) {
+				$dac->clear();
+				$dac->setDataArray($rule, ["ROWID", "t_page_ROWID"]);
+				$dac->setData("t_page_ROWID", $ROWID);
+				$dac->insert("t_rule");
+			}
+			$dac->commit();
+			
+			// note: HTML書き出し
+			$path = ($row["header_path"]) ? "../{$row["header_path"]}" : "../tmp";
+			$path = ($row["header_name"]) ? "{$path}/{$row["header_name"]}.tmp" : "{$path}/header_{$row["header_tmp"]}.tmp";
+			$header = file_get_contents($path);
+			
+			$path = ($row["footer_path"]) ? "../{$row["footer_path"]}" : "../tmp";
+			$path = ($row["footer_name"]) ? "{$path}/{$row["footer_name"]}.tmp" : "{$path}/footer_{$row["footer_tmp"]}.tmp";
+			$footer = file_get_contents($path);
+			
+			$content = Filter::makePage($row, $header, $footer);
+			if (file_put_contents("../{$row["url"]}", $content) === false) throw new \Exception( "ファイルのコピーに失敗しました。");
+			
+			// note: ページクラス書き出し
+			$template = file_get_contents("tmp/pageclass.tmp");
+			$source = Filter::makePageClass($row, $rules, $events, $template);
+			if (file_put_contents("../{$row["url"]}.class", $source) === false) throw new \Exception( "クラスファイルのコピーに失敗しました。");
+
+			$dac->clear();
+			$dac->setColumn("ROWID, page_name, url, tm_update");
+			$dac->setOrder("page_name");
+			$this->rows = $dac->select("t_page");
+			$res["html"] = $this->loadPageList();
+			$this->response($res, true);
+		} catch (\Exception $ex) {
+			$this->response($ex->getMessage(), false);
+		} finally {
+			$dac->close();
+		}
+	}
+	/**
+	 * ページリストをロード
+	 */
+	public function loadPageList() {
+		foreach ($this->rows as $row) {
+			$tmUpdate = ($row["tm_update"]) ? date("Y/m/d H:i", strtotime($row["tm_update"])) : "";
+			$html.= "<tr>";
+			$html.= "	<td>{$row["page_name"]}</td>";
+			$html.= "	<td><a href=\"../{$row["url"]}\" target=\"_blank\">{$row["url"]}</a></td>";
+			$html.= "	<td>{$tmUpdate}</td>";
+			$html.= "	<td class=\"edit\">";
+			$html.= "		<a href=\"page.html?ROWID={$row["ROWID"]}\">HTML</a>";
+			$html.= "		<a href=\"event.html?page={$row["ROWID"]}\">Event</a>";
+			$html.= "		<a class=\"copy\" data-rowid=\"{$row["ROWID"]}\">Copy</a>";
+			$html.= "</tr>";
+		}
+		return $html;
+	}
+}
+/**
+ * フォーム要素とルールの連想配列
+ * 指定要素にフィルタールールと必須チェック及びセッション利用の有無を指定する
+ */
+$form["ROWID"] = new Rule(9, "[^0-9]", "a", null, false, false);
+/**
+ * ページインスタンス生成
+ * 実行パス、ルール連想配列及びページセッション名を指定する
+ */
+$page = new Page_Page_List(__DIR__, null, "Lib.page.page_list");
+/**
+ * イベント発生時のコールバック関数、移動先及びセッション保存の有無をセットしload()を実行する
+ */
+$page->setEvent("default", null, array($page, "default"), "", false);
+$page->setEvent("action", "copy", array($page, "copy"), "", true);
+$page->load();

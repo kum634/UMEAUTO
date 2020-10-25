@@ -1,0 +1,213 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * HTMLタグスタティッククラス
+ *
+ * HTMLタグ生成処理に関するスタティックメソッドのみを実装している。
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2019 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.1.190829
+ */
+namespace Lib;
+
+class Tag {
+	/**
+	 * ラジオボタンタグを生成する
+	 *
+	 * @param string $name name属性
+	 * @param array $array value属性と表示内容の連想配列
+	 * @param string $value 選択状態にするvalue属性値
+	 * @param array $useValue value属性値に第２引数の配列値を使用する場合はtrue
+	 * @return string ラジオボタンタグ
+	 */
+	public static function getRadio(string $name, array $array, string $value = null, $useValue = false) : string {
+		$tag = "";
+		if ($useValue) {
+			foreach ($array as $k => $v) {
+				$checked = ($v == $value) ? " checked" : "";
+				$tag.= "<label><input type=\"radio\" name=\"{$name}\" value=\"{$v}\"{$checked}>{$v}</label>";
+			}
+		} else {
+			foreach ($array as $k => $v) {
+				$checked = ($k == $value) ? " checked" : "";
+				$tag.= "<label><input type=\"radio\" name=\"{$name}\" value=\"{$k}\"{$checked}>{$v}</label>";
+			}
+		}
+		return $tag;
+	}
+	/**
+	 * ラジオボタンタグを生成する
+	 *
+	 * @param string $name name属性
+	 * @param array $array value属性と表示内容の連想配列
+	 * @param string $value 選択状態にするvalue属性値
+	 * @param array $useValue value属性値に第２引数の配列値を使用する場合はtrue
+	 * @return string ラジオボタンタグ
+	 */
+	public static function getRadio2(string $name, array $array, string $value = null, $useValue = false) : string {
+		$tag = "";
+		if ($useValue) {
+			foreach ($array as $k => $v) {
+				$checked = ($v == $value) ? " checked" : "";
+				$tag.= "<input type=\"radio\" name=\"{$name}\" value=\"{$v}\"{$checked} id=\"{$name}_{$k}\"><label for=\"{$name}_{$k}\">{$v}</label>";
+			}
+		} else {
+			foreach ($array as $k => $v) {
+				$checked = ($k == $value) ? " checked" : "";
+				$tag.= "<input type=\"radio\" name=\"{$name}\" value=\"{$k}\"{$checked} id=\"{$name}_{$k}\"><label for=\"{$name}_{$k}\">{$v}</label>";
+			}
+		}
+		return $tag;
+	}
+	/**
+	 * チェックボックスタグを生成する modified: 180309 in_array第一引数をstringにキャストしゼロ値の誤判定に対応
+	 *
+	 * @param string $name name属性
+	 * @param array $array value属性と表示内容の連想配列
+	 * @param array $values 選択状態にするvalue属性値配列
+	 * @param array $useValue value属性値に第２引数の配列値を使用する場合はtrue
+	 * @return string チェックボックスタグ
+	 */
+	public static function getCheckBox(string $name, array $array, array $values = null, $useValue = false) : string {
+		$tag = "";
+		if ($useValue) {
+			foreach ($array as $k => $v) {
+				$checked = (isset($values) && in_array((string) $v, $values)) ? " checked" : "";
+				$tag.= "<label><input type=\"checkbox\" name=\"{$name}[]\" value=\"{$v}\"{$checked}>{$v}</label>";
+			}
+		} else {
+			foreach ($array as $k => $v) {
+				$checked = (isset($values) && in_array((string) $k, $values)) ? " checked" : "";
+				$tag.= "<label><input type=\"checkbox\" name=\"{$name}[]\" value=\"{$k}\"{$checked}>{$v}</label>";
+			}
+		}
+		return $tag;
+	}
+	/**
+	 * チェックボックスタグを生成する modified: 180309 in_array第一引数をstringにキャストしゼロ値の誤判定に対応
+	 *
+	 * @param string $name name属性
+	 * @param array $array value属性と表示内容の連想配列
+	 * @param array $values 選択状態にするvalue属性値配列
+	 * @param array $useValue value属性値に第２引数の配列値を使用する場合はtrue
+	 * @return string チェックボックスタグ
+	 */
+	public static function getCheckBox2(string $name, array $array, array $values = null, $useValue = false) : string {
+		$tag = "";
+		if ($useValue) {
+			foreach ($array as $k => $v) {
+				$checked = (isset($values) && in_array((string) $v, $values)) ? " checked" : "";
+				$tag.= "<input type=\"checkbox\" name=\"{$name}[]\" value=\"{$v}\"{$checked} id=\"{$name}_{$k}\"><label for=\"{$name}_{$k}\">{$v}</label>";
+			}
+		} else {
+			foreach ($array as $k => $v) {
+				$checked = (isset($values) && in_array((string) $k, $values)) ? " checked" : "";
+				$tag.= "<input type=\"checkbox\" name=\"{$name}[]\" value=\"{$k}\"{$checked} id=\"{$name}_{$k}\"><label for=\"{$name}_{$k}\">{$v}</label>";
+			}
+		}
+		return $tag;
+	}
+	/**
+	 * セレクトオプションタグを生成する
+	 *
+	 * @param string $name name属性
+	 * @param array $array value属性と表示内容の連想配列
+	 * @param string $value $arrayキーの中で選択状態にする値
+	 * @param array $useValue value属性値に第２引数の配列値を使用する場合はtrue
+	 * @return string セレクトオプションタグ
+	 */
+	public static function getOption(array $array, string $value = null, $useValue = false) : string {
+		$tag = "";
+		if ($useValue) {
+			foreach ($array as $k => $v) {
+				$select = (!is_null($value) && $value != "" && $v == $value) ? " selected" : "";
+				$tag.= "<option value=\"{$v}\"{$select}>{$v}</option>";
+			}
+		} else {
+			foreach ($array as $k => $v) {
+				$select = (!is_null($value) && $value != "" && $k == $value) ? " selected" : "";
+				$tag.= "<option value=\"{$k}\"{$select}>{$v}</option>";
+			}
+		}
+		return $tag;
+	}
+	/**
+	 * 年セレクトオプションタグを生成する
+	 *
+	 * @param int $before 現在の年から換算して開始する年数
+	 * @param int $after 現在の年から換算して終了までの年数
+	 * @param string $value $arrayキーの中で選択状態にする日付書式の文字列
+	 * @return string セレクトオプションタグ
+	 */
+	public static function getYearOption($before, $after, string $value = null) : string {
+		$value = str_replace("/", "-", $value);
+		if (strpos($value, "-") !== false) $value = explode("-", $value)[0];
+		for ($n = date("Y") - $before; $n <= date("Y") + $after; $n++) {
+			$select = ($n == $value) ? " selected" : "";
+			$tag.= "<option value=\"{$n}\"{$select}>{$n}</option>";
+		}
+		return $tag;
+	}
+	/**
+	 * 月セレクトオプションタグを生成する
+	 *
+	 * @param string $value $arrayキーの中で選択状態にする日付書式の文字列
+	 * @return string セレクトオプションタグ
+	 */
+	public static function getMonthOption(string $value = null) : string {
+		$value = str_replace("/", "-", $value);
+		if (strpos($value, "-") !== false) $value = explode("-", $value)[1];
+		for ($n = 1; $n <= 12; $n++) {
+			$select = ($value != "" && (int) $n == (int) $value) ? " selected" : "";
+			$tag.= "<option value=\"{$n}\"{$select}>{$n}</option>";
+		}
+		return $tag;
+	}
+	/**
+	 * 日セレクトオプションタグを生成する
+	 *
+	 * @param string $value $arrayキーの中で選択状態にする日付書式の文字列
+	 * @return string セレクトオプションタグ
+	 */
+	public static function getDayOption(string $value = null) : string {
+		$value = str_replace("/", "-", $value);
+		if (strpos($value, "-") !== false) $value = explode("-", $value)[2];
+		for ($n = 1; $n <= 31; $n++) {
+			$select = ($value != "" && (int) $n == (int) $value) ? " selected" : "";
+			$tag.= "<option value=\"{$n}\"{$select}>{$n}</option>";
+		}
+		return $tag;
+	}
+	/**
+	 * 時セレクトオプションタグを生成する
+	 *
+	 * @param string $value $arrayキーの中で選択状態にする日付書式の文字列（00:00:00）
+	 * @return string セレクトオプションタグ
+	 */
+	public static function getHoureOption(string $value = null) : string {
+		if ($value) $value = explode(":", $value)[0];
+		
+		for ($n = 0; $n <= 23; $n++) {
+			$select = ($value != "" && (int) $n == (int) $value) ? " selected" : "";
+			$tag.= "<option value=\"{$n}\"{$select}>{$n}</option>";
+		}
+		return $tag;
+	}
+	/**
+	 * 分セレクトオプションタグを生成する
+	 *
+	 * @param string $value $arrayキーの中で選択状態にする日付書式の文字列（00:00:00）
+	 * @return string セレクトオプションタグ
+	 */
+	public static function getMinOption(string $value = null, $step = 10) : string {
+		if ($value) $value = explode(":", $value)[1];
+		
+		for ($n = 0; $n <= 59; $n += $step) {
+			$select = ($value != "" && (int) $n == (int) $value) ? " selected" : "";
+			$tag.= "<option value=\"{$n}\"{$select}>{$n}</option>";
+		}
+		return $tag;
+	}
+}

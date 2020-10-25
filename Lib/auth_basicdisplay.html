@@ -1,0 +1,126 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * ユーザーページ
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2020 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.200226
+ */
+require_once("auth_basicdisplay.html.class");
+?>
+<?php include("inc/header.inc"); ?>
+<style>
+input[type="text"] { width: 600px; }
+input[type="text"]:read-only { background: #f0f0f0; }
+section form dl dd label { width: 100px; }
+section form button { margin-top: 30px; }
+section form textarea {
+	width: 600px;
+	height: 100px;
+	background: #f0f0f0;
+}
+section form code {
+	display: block;
+	width: 600px;
+	border-radius: 4px;
+	padding: 20px;
+	background: #f0f0f0;
+}
+section form div.code {
+	margin-top: 50px;
+}
+</style>
+
+<section>
+	<div class="wrap clearfix">
+		<div id="menu">
+			<?php include("inc/menu.inc"); ?>
+		</div><!-- #menu -->
+		<script>
+		$(function() {
+			$("section #btn_apply").on("click", function() {
+				var data = {};
+				data.app_id = $("section input[name=app_id]").val();
+				data.app_secret = $("section input[name=app_secret]").val();
+				data.action = "getAuthURL";
+				if (data.app_id == "" || data.app_secret == "") return;
+
+				$.post(location.href, data, function(res) {
+					if (res.status != "SUCCEED") alert(res.text);
+					else location.href = res.url;
+				}, "json");
+				return false;
+			});
+			if ("<?= $_GET["code"] ?>" != "") {
+				var data = {};
+				data.code = "<?= $_GET["code"] ?>";
+				data.app_id = $("section input[name=app_id]").val();
+				data.app_secret = $("section input[name=app_secret]").val();
+				data.action = "getToken";
+
+				$("section #btn_apply").prop("disabled", true);
+				$.post(location.href, data, function(res) {
+					if (res.status != "SUCCEED") alert(res.text);
+					else {
+						console.log(res);
+						$("section div.code dl:first-child dd").html("<textarea readonly>" + res["access_token"] + "</textarea>");
+					}
+					$("section #btn_apply").prop("disabled", false);
+				}, "json");
+			}
+		});
+		</script>
+		<div class="content">
+			<article>
+				<?= ($page->errors["form"]) ? "<p>{$page->errors["form"]}</p>" : "" ?>
+				<h2>Authorization Instagram Basic Display API</h2>
+			</article>
+			<form method="post" class=" clearfix">
+				<dl>
+					<dt>Redirect URL</dt>
+					<dd>
+						<input type="text" name="redirect_uri" readonly value="<?= $page->values["redirect_uri"] ?>">
+					</dd>
+				</dl>					
+				<dl>
+					<dt>app id</dt>
+					<dd>
+						<input type="text" name="app_id" value="<?= $page->values["app_id"] ?>">
+					</dd>
+				</dl>					
+				<dl>
+					<dt>app secret</dt>
+					<dd>
+						<input type="text" name="app_secret" value="<?= $page->values["app_secret"] ?>">
+					</dd>
+				</dl>
+				<div class="clearfix">
+					<div class="left">
+						<button id="btn_apply" onclick="$('#action').val('save');">Apply</button>
+					</div>
+				</div>
+				<div class="code">
+					<dl>
+						<dt>Access Token</dt>
+						<dd>Appears after authentication.</dd>
+					</dl>
+					<dl>
+						<dt>Sample Code</dt>
+						<dd>
+							<code>
+<pre>
+$media = new Media($page->node, "{Access Token}");
+$media->userName = "{Instagram User Name}";
+$rows = $media->load();
+</pre>
+							</code>
+						</dd>
+					</dl>
+				</div>
+			</form>
+		</div><!-- #content -->
+	</div><!-- #wrap -->
+</section>
+<?php include("inc/footer.inc"); ?>

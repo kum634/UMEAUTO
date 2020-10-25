@@ -1,0 +1,223 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * JSページクラス
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2020 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.200419
+ */
+namespace Lib;
+
+require_once("Conf.inc");
+require_once("Common/Page.class");
+require_once("Common/DAC.class");
+
+class Page_JS extends Page {
+	public $title;
+	/**
+	 * 
+	 */
+	public function default(){
+		Lib::authPage($this);
+
+		// note: ポストバックデータがある場合はリターン
+		if ($this->values && $this->values["ROWID"] == $_GET["ROWID"]) return true;
+
+		// note: 新規の場合はリターン
+		if(!$_GET["ROWID"]) {
+			$this->values["user_id"] = $_SESSION[DOMAIN]["Lib.user"]["user_id"];
+			$this->values["user_name"] = $_SESSION[DOMAIN]["Lib.user"]["user_name"];
+			$this->title = "New js - ";
+			return true;
+		}
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setColumn("j.ROWID");
+		$dac->setColumn("j.tm_create");
+		$dac->setColumn("j.tm_update");
+		$dac->setColumn("j.user_id");
+		$dac->setColumn("j.is_locked");
+		$dac->setColumn("j.js_name");
+		$dac->setColumn("j.file_path");
+		$dac->setColumn("j.content");
+		$dac->setColumn("u.user_name");
+		$dac->setOption("j.ROWID = [0]", $_GET["ROWID"]);
+		if (!$dac->selectRows("t_js As j Left Join t_user As u On (j.user_id = u.user_id)", $rows)) {
+			$_SESSION[DOMAIN]["Lib.page.js_list"]["errors"]["message"] = $dac->message;
+			$this->location("Location: js_list.html");
+		}
+		if (!$rows[0]) {
+			$_SESSION[DOMAIN]["Lib.page.js_list"]["errors"]["message"] = "JSが存在しません。";
+			$this->location("Location: js_list.html");
+		}
+		$this->values = Filter::getEntities($rows[0]);
+		$this->errors = null;
+		$this->title = "{$rows[0]["js_name"]}.js - ";
+		return true;
+	}
+	/**
+	 * ページセッションを破棄しリストへ戻る
+	 */
+	public function back() {
+		Lib::authPage($this);
+		unset($_SESSION[DOMAIN][$this->sessionKey]);
+		unset($_SESSION[DOMAIN]["Lib.page.js_list"]["errors"]);
+		return true;
+	}
+	/**
+	 * JS情報を保存する
+	 */
+	public function save($useLocation = true) {
+		Lib::authPage($this);
+		if ($this->errors) return false;
+		// note: タブを半角スペースx2に変換
+		Filter::tab2space($_POST["content"]);
+		// note: 保存先の前後のスラッシュを削除
+		$_POST["file_path"] = trim($_POST["file_path"], "/");
+		
+		// note: 同名ファイルをチェック
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setColumn("Count(*) cnt");
+		$dac->setOption("js_name = [0]", $_POST["js_name"]);
+		$dac->setOption("file_path = [0]", $_POST["file_path"]);
+		$dac->setOption("ROWID <> [0]", $_POST["ROWID"]);
+		if (!$dac->selectRows("t_js", $rows)) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["message"] = $dac->message;
+			return false;
+		}
+		if ($rows[0]["cnt"] > 0) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["message"] = "指定ファイル名は使用されています。";
+			return false;
+		}
+		// note: 保存前のファイルを獲得する
+		$dac->clear();
+		$dac->setColumn("js_name, file_path");
+		$dac->setOption("ROWID = [0]", $_POST["ROWID"]);
+		if (!$dac->selectRows("t_js", $rows, 1)) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["message"] = $dac->message;
+			return false;
+		} else if (count($rows) > 0) {
+			if ($rows[0]["file_path"]) $basePath = "../{$rows[0]["file_path"]}/{$rows[0]["js_name"]}.js";
+			else $basePath = "../js/{$rows[0]["js_name"]}.js";
+		}
+		// note: JS情報を登録する
+		$dac->clear();
+		$dac->setData("js_name", $_POST["js_name"]);
+		$dac->setData("file_path", $_POST["file_path"]);
+		$dac->setData("content", $_POST["content"]);
+		$dac->setData("tm_update", date("Y/m/d H:i:s"));
+		// modified: 170908 セッション切れの場合はユーザーを更新しない
+		if ($_SESSION[DOMAIN]["Lib.user"]["user_id"])
+			$dac->setData("user_id", $_SESSION[DOMAIN]["Lib.user"]["user_id"]);
+		
+		if(!$_POST["ROWID"]){
+			$dac->setData("tm_create", date("Y/m/d H:i:s"));
+			if (!$ROWID = $dac->insertData("t_js", true, true)){
+				$_SESSION[DOMAIN][$this->sessionKey]["errors"]["message"] = $dac->message;
+				return false;
+			}
+		} else {
+			$dac->setOption("ROWID = [0]", $_POST["ROWID"]);
+			if (!$dac->updateData("t_js", 1)) {
+				$_SESSION[DOMAIN][$this->sessionKey]["errors"]["message"] = $dac->message;
+				return false;
+			}
+			$ROWID = $_POST["ROWID"];
+		}
+		// note: JSファイル書き出し
+		if ($_POST["file_path"]) $destPath = "../{$_POST["file_path"]}/{$_POST["js_name"]}.js";
+		else $destPath = "../js/{$_POST["js_name"]}.js";
+		// note: ファイル名が変更された場合は元のファイルを削除
+		if ($basePath && $basePath != $destPath) unlink($basePath);
+
+		Filter::makeDirectory($destPath);
+		if (file_put_contents($destPath, $_POST["content"]) === false) {
+			unset($_SESSION[DOMAIN][$this->sessionKey]);
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["message"] = "JSの書き出しに失敗しました。";
+			return false;
+		}
+		unset($_SESSION[DOMAIN][$this->sessionKey]);
+		$this->location("js.html?ROWID={$ROWID}#javascript");
+	}
+	/**
+	 * CSS情報を削除する
+	 */
+	public function delete() {
+		Lib::authPage($this);
+		if (!$_POST["ROWID"]) return false;
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setOption("ROWID = [0]", $_POST["ROWID"]);
+
+		// note: ファイル名を獲得する
+		$dac->setColumn("js_name, file_path");
+		$dac->setOption("ROWID = [0]", $_POST["ROWID"]);
+		if (!$dac->selectRows("t_js", $rows, 1)) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["message"] = $dac->message;
+			return false;
+		} else if (count($rows) > 0) {
+			if ($rows[0]["file_path"]) $pathBase = "../{$rows[0]["file_path"]}/{$rows[0]["js_name"]}.js";
+			else $pathBase = "../js/{$rows[0]["js_name"]}.js";
+		}
+
+		// note: JS情報を削除する
+		if (!$dac->deleteRows("t_js", 1)) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["message"] = $dac->message;
+			return false;
+		}
+		// note: ファイルを削除する
+		if ($pathBase) unlink($pathBase);
+		
+		unset($_SESSION[DOMAIN][$this->sessionKey]);
+		return true;
+	}
+	/**
+	 * ajax: テンプレートをロックする
+	 */
+	public function lock() {
+		Lib::authPage($this);
+		if (!$_POST["ROWID"]) die("FAILURE:必要な情報が送信されませんでした。");
+
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setOption("ROWID = [0]", $_POST["ROWID"]);
+		if ($_POST["is_locked"]) {
+			$dac->setData("is_locked", "0");
+		}else {
+			$dac->setData("user_id", $_SESSION[DOMAIN]["Lib.user"]["user_id"]);
+			$dac->setData("is_locked", "1");
+		}
+		if (!$dac->updateData("t_js", 1)) die("FAILURE:{$dac->message}");
+
+		echo "SUCCEED";
+		exit();
+	}
+}
+/**
+ * フォーム要素とルールの連想配列
+ * 指定要素にフィルタールールと必須チェック及びセッション利用の有無を指定する
+ */
+$form["ROWID"] = new Rule(9, "[^0-9]", "a", null, false, true);
+$form["tm_create"] = new Rule(20, "[^0-9/: ]", null, null, false, true);
+$form["tm_update"] = new Rule(20, "[^0-9/: ]", null, null, false, true);
+$form["user_name"] = new Rule(200, null, null, null, false, true);
+
+$form["user_id"] = new Rule(20, "[^0-9a-zA-Z\-_]", null, null, false, true);
+$form["is_locked"] = new Rule(1, "[^01]", null, null, false, true);
+
+$form["js_name"] = new Rule(100, "[^0-9a-zA-Z\-_.]", "a", null, true, true);
+$form["file_path"] = new Rule(100, "[^0-9a-zA-Z\-_/]", "a", null, false, true);
+$form["content"] = new Rule(200000, "", null, null, false, true);
+/**
+ * ページインスタンス生成
+ * 実行パス、ルール連想配列及びページセッション名を指定する
+ */
+$page = new Page_JS(__DIR__, $form, "Lib.page.js");
+/**
+ * イベント発生時のコールバック関数、移動先及びセッション保存の有無をセットしload()を実行する
+ */
+$page->setEvent("default", null, array($page, "default"), "", false);
+$page->setEvent("action", "back", array($page, "back"), "js_list.html", false);
+$page->setEvent("action", "save", array($page, "save"), "js_list.html", true);
+$page->setEvent("action", "delete", array($page, "delete"), "js_list.html", false);
+$page->setEvent("action", "lock", array($page, "lock"), "", false);
+$page->load();

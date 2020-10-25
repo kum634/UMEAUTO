@@ -1,0 +1,582 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * フィルタースタティッククラス
+ *
+ * 入力フィルター処理、文字列変換処理に関するスタティックメソッドを実装している。
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2006-2019 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.191222
+ */
+namespace Lib;
+
+class Filter {
+	/**
+	 * 参照変数にフィルターを適用する
+	 *
+	 * @param string $r フィルターを適用する参照変数
+	 * @param int $max 最大文字数
+	 * @param string $exp 禁則正規表現パターン（マッチする文字が除去される）
+	 * @param string $con かな変換オプション（mb_convert_kana第2引数）
+	 * @param string $default 既定値（フィルター結果が空文字となる場合に置き換える）
+	 */
+	public static function set(string &$r = null, int $max = 100, string $exp = null, string $conv = null, string $default = null) {
+		if (is_null($r)) return;
+		$exp = ($exp !== null) ? $exp : "[<>&$,'\"]";
+
+		$r = self::trimSpace(mb_substr($r, 0, $max));
+		$r = str_replace(array("\r\n", "\r"), "\n", $r);
+		if ($conv) $r = mb_convert_kana($r, $conv);
+
+		if ($exp !== "") {
+			$r = str_replace("\\", "", $r);
+			$r = mb_ereg_replace($exp, "", $r);
+		}
+		if ($default !== null && $r === "") {
+			$r = $default;
+		}
+	}
+	/**
+	 * フィルター適用後の文字列を返す
+	 *
+	 * @param string $s フィルターを適用する文字列
+	 * @param int $max 最大文字数
+	 * @param string $exp 禁則正規表現パターン（マッチする文字が除去される）
+	 * @param string $con かな変換オプション（mb_convert_kana第2引数）
+	 * @param string $default 既定値（フィルター結果が空文字となる場合に返す）
+	 * @return string フィルター適用後の文字列
+	 */
+	public static function get(string $s = null, int $max = 100, string $exp = null, string $conv = null, string $default = null) : string {
+		if (is_null($s)) return "";
+		$exp = ($exp !== null) ? $exp : "[<>&$,'\"]";
+
+		$s = self::trimSpace(mb_substr($s, 0, $max));
+		$s = str_replace(array("\r\n", "\r"), "\n", $s);
+		if ($conv) $s = mb_convert_kana($s, $conv);
+
+		if ($exp!=="") {
+			$s = str_replace("\\", "", $s);
+			$s = mb_ereg_replace($exp, "", $s);
+		}
+		if ($default !== null && $s==="") {
+			$s = $default;
+		}
+		return $s;
+	}
+	/**
+	 * 文字列を全角に変換する
+	 *
+	 * @param string $s 変換する文字列
+	 * @param int $max 最大文字数
+	 * @return string 変換後の文字列
+	 */
+	public static function getA(string $s, int $max = 100) : string {
+		$s = self::trimSpace(mb_substr($s, 0, $max));
+		$s = str_replace(array("\r\n", "\r"), "\n", $s);
+		$s = mb_convert_kana($s, "A");
+		$s = str_replace("\"", "”", $s);
+		$s = str_replace("'", "’", $s);
+		$s = str_replace("\\", "￥", $s);
+		$s = str_replace("~", "～", $s);
+		
+		return $s;
+	}
+	/**
+	 * 参照配列にフィルターを適用する
+	 * modified: 170912 ループフィルターを get に変更（連想配列に対応）
+	 * modified: 171114 ループフィルターに再帰処理を追加
+	 *
+	 * @param string $refArray フィルターを適用する参照配列
+	 * @param int $max 最大文字数
+	 * @param string $exp 禁則正規表現パターン（マッチする文字が除去される）
+	 * @param string $con かな変換オプション（mb_convert_kana第2引数）
+	 * @param string $default 既定値（フィルター結果が空文字となる場合に置き換える）
+	 */
+	public static function setArray(array &$refArray, int $max = 100, string $exp = null, string $conv = null, string $default = null) {
+		if (!is_array($refArray)) return false;
+
+		//for ($n = 0; $n < count($refArray); $n++)
+			//Filter::set($refArray[$n], $max, $exp, $conv, $default);
+		foreach ($refArray as $k => $v) {
+			if (is_array($v)) {
+				self::setArray($v, $max, $exp, $conv, $default);
+				$refArray[$k] = $v;
+			} else $refArray[$k] = self::get($v, $max, $exp, $conv, $default);
+		}
+		return true;
+	}
+	/**
+	 * 文字列から正規表現にマッチする文字を取り除く
+	 *
+	 * @param string $s 対象文字列
+	 * @param bool $all falseの場合、文字列の前後にマッチする文字のみを取り除く
+	 * @param string $exp 正規表現（規定値はホワイトスペース）
+	 * @return string 変換後の文字列
+	 */
+	public static function trimSpace(string $s, $all = false, string $exp = "[ 　\t\r\n\0]") : string {
+		if ($all) return mb_ereg_replace($exp, "", $s);
+		else return mb_ereg_replace("^{$exp}+|{$exp}+$", "", $s);
+	}
+	/**
+	 * 日時が指定された時間を超えていないか判定する
+	 *
+	 * @param string $date 判定対象の日時文字列
+	 * @param int $time 超過時間
+	 * @return bool 日時が超過している場合にtrueを返す
+	 */
+	public static function isExpire(string $date, int $time) {
+		$target = strtotime($date);
+		return ((time() - $target) > ($time * 60));
+	}
+	/**
+	 * $_GET変数からURLクエリー文字列を生成する
+	 * modified: 181205 パラメータの重複を修正
+	 *
+	 * @param array $params 追加または上書きするGETパラメータ連想配列
+	 * @param array $excepts 除外するGETパラメータ
+	 * @return string URLクエリー文字列
+	 */
+	public static function getQueryString($params = array(), $excepts = array()) : string {
+		$ss = array();
+		$keys = array_keys($params);
+		
+		foreach ($_GET as $k => $v) {
+			if (in_array($k, $excepts)) continue;
+			if (in_array($k, $keys)) continue;;
+			if (!$v) continue;
+			$ss[] = sprintf("%s=%s", $k, urlencode($v));
+		}
+		foreach ($params as $k => $v) {
+			$ss[] = sprintf("%s=%s", $k, urlencode($v));
+		}
+		return implode("&", $ss);
+	}
+	/**
+	 * 現在のアクセスURLにクエリー文字列を付加したURLを生成する
+	 *
+	 * @param string $query クエリー文字列
+	 * @return string クエリー文字列を付加したURL
+	 */
+	public static function getRequestURL(string $query = null) : string {
+		$ptcl = ($_SERVER["HTTPS"]) ? "https" : "http";
+		$host = $_SERVER["HTTP_HOST"];
+		if (!$query) return "{$ptcl}://{$host}" . $_SERVER["SCRIPT_NAME"];
+		else return "{$ptcl}://{$host}" . $_SERVER["SCRIPT_NAME"] . "?{$query}";
+	}
+	/**
+	 * 現在のアクセスURLからアクセスページ名を取得する
+	 *
+	 * @return string アクセスページ
+	 */
+	public static function getRequestPage() : string {
+		$ss = explode("/", $_SERVER["SCRIPT_NAME"]);
+		return $ss[count($ss) - 1];
+	}
+	/**
+	 * URLにページ名が含まれているか判定する
+	 *
+	 * @param string $url URL
+	 * @return bool 含まれている場合はtrueを返す
+	 */
+	public static function hasPageName(string $url) {
+		$ss = explode("/", $url);
+		return ($ss[count($ss) -1] != "");
+	}
+	/**
+	 * 生年月日から現在の年令を算出する
+	 *
+	 * @param string $date 生年月日
+	 * @return int 年令
+	 */
+	public static function getAge(string $date) : int {
+		$ty = date("Y");
+		$tm = date("m");
+		$td = date("d");
+		list($by, $bm, $bd) = explode('-', $date);
+		$age = $ty - $by;
+		if ($tm * 100 + $td < $bm * 100 + $bd) $age--;
+		return $age;
+	}
+	/**
+	 * 年齢から生年月日を算出する
+	 *
+	 * @param int $age 年齢
+	 * @return array 生年月日の範囲日付書式文字列
+	 */
+	public static function getBirthday($age) {
+		$tm[] = mktime(0, 0, 0, date("m"), date("d") + 1, date("Y") - $age - 1);
+		$tm[] = mktime(0, 0, 0, date("m"), date("d"), date("Y") - $age);
+		return [date("Y-m-d", $tm[0]), date("Y-m-d", $tm[1])];
+	}
+	/**
+	 * mb_internal_encoding()を変更し正確なMIMEヘッダーエンコード結果を返す
+	 *
+	 * @param string $s 
+	 * @return string エンコード結果
+	 */
+	public static function getMimeEncode(string $s, string $encoding) : string {
+		$org = mb_internal_encoding();
+		mb_internal_encoding($encoding);
+
+		$s = mb_encode_mimeheader($s, $encoding);
+		mb_internal_encoding($org);
+		return $s;
+	}
+	/**
+	 * 文字列をASCIIコード表記に変換する
+	 *
+	 * @param string $s 対象文字列
+	 * @return string 変換結果
+	 */
+	public static function getASCII(string $s) : string {
+		foreach (str_split($s) as $v) {
+			$a .= "&#". ord($v) . ";";
+		}
+		return $a;
+	}
+	/**
+	 * 文字列をXML用のHTMLエンティティに変換する
+	 *
+	 * @param string $s 対象文字列
+	 * @return string 変換結果
+	 */
+	public static function getXmlValue(string $s) : string {
+		return htmlentities($s, ENT_QUOTES | ENT_HTML5, "UTF-8");
+	}
+	/**
+	 * 文字列または配列の値をHTMLエンティティに変換する
+	 *
+	 * @param string|array $value 対象文字列または配列
+	 * @return string|array 変換結果
+	 */
+	public static function getEntities($value) {
+		if (is_array($value)) {
+			foreach ($value as $k => $v) {
+				$value[$k] = self::getEntities($v);
+			}
+			return $value;
+		} else return htmlspecialchars($value, ENT_QUOTES);
+	}
+	/**
+	 * ファイルパスへの相対パスを返す
+	 *
+	 * @param string $path ファイルパス
+	 * @return string ファイルパスへの相対パス
+	 */
+	public static function getPath(string $path) : string {
+		if ($path == "") return "";
+		else return str_repeat("../", substr_count($path, "/"));
+	}
+	/**
+	 * URLが相対パスの場合に第2引数に指定したパスへの相対URLを返す
+	 * @param string $url URL
+	 * @param string $path 相対パス
+	 * @return string 相対URL
+	 */
+	public static function getRelativeURL(string $url, string $path) : string {
+		if (stripos($url, "http") === 0) return $url;
+		else if(strpos($url, "//") === 0) return $url;
+		else return $path . str_replace(["../", "./"], "", $url);
+	}
+	/**
+	 * コピー先のURLを返す
+	 * @param string $url コピー元のURL
+	 * @return string コピー先のURL
+	 */	
+	public static function getCopyURL(string $url) : string {
+		$array = explode("/", $url);
+		for ($n = 0; $n < count($array); $n++) {
+			if ($n == count($array) - 1) {
+				$string.= "copy_{$array[$n]}";
+			} else {
+				$string.= $array[$n]."/";
+			}
+		}
+		return $string;
+	}
+	/**
+	 * ファイルパスを正当なクラス名に変換する
+	 * modified: 170719 [.-]付きのファイル名に対応
+	 *
+	 * @param string $path ファイルパス
+	 * @return string クラス名
+	 */
+	public static function getClassName(string $path) : string {
+		$name = str_replace(array(".html", ".xml"), "", end(explode("/", $path)));
+		$name = str_replace(array(".", "-"), "_", $name);
+		$ss = explode("_", $name);
+		foreach ($ss as $s) $array[] = ucfirst($s);
+		return implode("", $array);
+	}
+	/**
+	 * 指定パスまでのディレクトリを作成する
+	 *
+	 * @param string $path 関数名
+	 * @return bool ディレクトリが存在するかディレクトリの作成に成功した場合はtrue
+	 */
+	public static function makeDirectory(string $path) {
+		$filename = strrchr($path, "/");
+		$dir = str_replace($filename, "", $path);
+		if (file_exists($dir)) return true;
+		return mkdir($dir, 0777, true);
+	}
+	/**
+	 * メンバ変数定義ソースコードを生成する
+	 *
+	 * @param string $name カンマ区切りのメンバ変数名
+	 * @return string ソースコード
+	 */
+	public static function makeVariable(string $name) : string {
+		if ($name == "") return "";
+		else {
+			$ss = explode(",", $name);
+			foreach ($ss as $s) {
+				$variable[] = (substr($s, 0, 1) == "\$") ? "\tpublic {$s};" : "\tpublic \${$s};";
+			}
+			return implode("\n", $variable);
+		}
+	}
+	/**
+	 * ファンクションソースコードを生成する
+	 *
+	 * @param string $name 関数名
+	 * @param string $source ロジックソースコード
+	 * @param string $comment コメント
+	 * @return string ソースコード
+	 */
+	public static function makeFunction(string $name, string $source, string $comment) : string {
+		$ss = explode("\n", $source);
+		$function = "\t/**\n\t * {$comment}\n\t */\n";
+
+		$function.= "\tpublic function {$name}() {\n";
+		foreach ($ss as $s) $function.= "\t\t" . str_replace("  ", "\t", $s) . "\n";
+		$function.= "\t}\n";
+		return $function;
+	}
+	/**
+	 * テンプレートとコンテンツを結合しHTMLソースコードを生成する
+	 * modified: 191222 style、cssフィールド追加
+	 *
+	 * @param array $rowPage ページデータ
+	 * @param string $header ヘッダーテンプレート
+	 * @param string $footer フッターテンプレート
+	 * @return string HTMLソースコード
+	 */
+	public static function makePage($row, string $header, string $footer) : string {
+		$name = end(explode("/", $row["url"]));
+		$html = "<?php require_once(\"{$name}.class\"); ?>\n";
+		$html.= "{$header}\n";
+		if ($row["style"]) $html.= "<style>\n{$row["style"]}\n</style>\n";
+		if ($row["script"]) $html.= "<script>\n{$row["script"]}\n</script>\n";
+		$html.= "{$row["content"]}\n";
+		$html.= "{$footer}";
+		$html = str_replace("{#title}", "{$row["title"]}", $html);
+		$html = str_replace("{#keywords}", "{$row["keyword"]}", $html);
+		$html = str_replace("{#description}", "{$row["description"]}", $html);
+		return $html;
+	}
+	/**
+	 * ページデータからページクラスとなるソースコードを生成する
+	 *
+	 * @param array $rowPage ページデータ
+	 * @param array $rowsRule ルール設定
+	 * @param array $rowsEvent イベント設定
+	 * @param string $template ページクラステンプレート
+	 * @return string ソースコード
+	 */
+	public static function makePageClass($row, $rowsRule, $rowsEvent, string $template) : string {
+		$class = $template;
+		$class = str_replace("{#package}", PACKAGE, $class);
+		$class = str_replace("{#copyright}", COPYRIGHT, $class);
+		$class = str_replace("{#version}", VERSION, $class);
+		$class = str_replace("{#date}", date("Ymd"), $class);
+		// modified: 171114 クラスファイルの共通呼び出しを考慮し.xmlに限らずドキュメントルートを使用
+		//if (strpos($row["url"], ".xml") !== false) $class = str_replace("{#pagepath}", "{\$_SERVER[\"DOCUMENT_ROOT\"]}/", $class);
+		//$class = str_replace("{#pagepath}", Filter::getPath($row["url"]), $class);
+		$class = str_replace("{#pagepath}", "{\$_SERVER[\"DOCUMENT_ROOT\"]}/", $class);
+		
+		foreach (explode(",", $row["dir"]) as $require) {
+			if (!$require) continue;
+			$requires[] = "require_once(\"Common/{$require}.class\");";
+		}
+		$class = str_replace("{#require}", implode("\n", $requires), $class);
+												 
+		$dir = ($row["dir"]) ? "Page,{$row["dir"]}" : "Page";
+		$class = str_replace("{#use_dir}", $dir, $class);
+		$class = str_replace("{#pagename}", Filter::getClassName($row["url"]), $class);
+		$class = str_replace("{#variable}", Filter::makeVariable($row["variable"]), $class);
+
+		// note: イベント設定書き出し
+		foreach ($rowsEvent as $event) {
+			if (!$event["visible"]) continue;
+			
+			$useSession = ($event["use_session"]) ? "true" : "false";
+			$value = (!$event["value"]) ? "null" : "\"{$event['value']}\"";
+			if ($event["callback"]) {
+				if ($event["is_event"]) {
+					if ($event["name"] == "default") $comment = "ページロード時に実行します。";
+					else $comment = "{$event["name"]}が{$event["value"]}のときに実行します。";
+					
+					$events.= Filter::makeFunction($event["callback"], $event["content"], $comment);
+					$setEvents.= "\$page->setEvent(\"{$event["name"]}\", {$value}, array(\$page, \"{$event["callback"]}\"), \"{$event["move_to"]}\", {$useSession});\n";
+				} else {
+					$events.= Filter::makeFunction($event["callback"], $event["content"], $event["comment"]);
+				}
+			}
+		}
+
+		$crossPage = ($row["cross_page"]) ? "\$page->canCrossPagePostBack = true;" : "\$page->canCrossPagePostBack = false;";
+
+		$class = str_replace("{#function}", $funcs, $class);
+		$class = str_replace("{#event}", $events, $class);
+		$class = str_replace("{#setEvent}", $setEvents, $class);
+		$class = str_replace("{#crossPage}", $crossPage, $class);
+	
+		// note:ルール設定書き出し
+		foreach ($rowsRule as $rule) {
+			switch ($rule["pattern"]) {
+				case "1": $pattern = "\"[^" . str_replace(",", "", $rule["pattern_check"]) . "]\""; break;
+				case "2": $pattern = "\"{$rule["pattern_input"]}\""; break;
+				case "3": $pattern = "\"\""; break;
+				default: $pattern = "null"; break;
+			}
+			switch ($rule["kana"]) {
+				case "1": $kana = "\"{$rule["kana_check"]}\""; break;
+				case "2": $kana = "\"{$rule["kana_input"]}\""; break;
+				case "3": $kana = "null"; break;
+			}
+			$rule["def"] = ($rule["def"] != "") ? "\"{$rule["def"]}\"" : "null";
+			$rule["req"] = ($rule["req"]) ? "true" : "false";
+			$rule["use_session"] = ($rule["use_session"]) ? "true" : "false";
+			
+			$rules.= "\$form[\"{$rule["name"]}\"] = new Rule({$rule["len"]}, {$pattern}, {$kana}, {$rule["def"]}, {$rule["req"]}, {$rule["use_session"]});\n";
+		}
+		$class = str_replace("{#rule}", $rules, $class);
+		$class = str_replace("{#form}", ($rowsRule) ? "\$form" : "null", $class);
+		$class = str_replace("{#sessionKey}", ($row["page_session"]) ? "\"{$row["page_session"]}\"" : "null", $class);
+		// added: 171019
+		$class = str_replace("{#post_files}", ($row["post_files"]) ? "true" : "false", $class);
+		return $class;
+	}
+	/**
+	 * バイト表記を変換する
+	 *
+	 * @param int $bytes バイト数
+	 * @return string 変換後の表記
+	 */
+	function getByte($bytes) : string {
+		$s = array("", "KB", "MB", "GB", "TB", "PB");
+		$e = floor(log($bytes) / log(1024));
+		return sprintf("%.2f{$s[$e]}", ($bytes / pow(1024, floor($e))));
+	}
+	/**
+	 * 参照文字列のタブを半角スペースx2に変換する
+	 *
+	 * @param string $string 参照文字列
+	 */
+	function tab2space(&$string) {
+		if (!$string) return;
+		$string = str_replace("\t", "  ", $string);
+	}
+	/**
+	 * 参照文字列の行末がタグでない場合に<Br>を挿入する
+	 *
+	 * @param string $string 参照文字列
+	 */
+	function nl2br(&$string) {
+		if (!$string) return;
+		$array = explode("\n", $string);
+		foreach ($array as $s) {
+			if (substr($s, -1) == ">") $ss.= $s;
+			else $ss.= "{$s}<br>";
+		}
+		$string = $ss;
+	}
+	/**
+	 * 参照文字列が指定長を超える場合にリーダ付きの指定長文字列に変換する
+	 *
+	 * @param string $string 参照文字列
+	 * @param int $length 文字長
+	 */
+	function cutString(&$string, int $length) {
+		if (mb_strlen($string) <= $length) return;
+		$string = mb_substr($string, 0, $length -1) . "&hellip;";
+	}
+	/**
+	 * 連想配列を返すスタティックファンクションソースコードを生成する
+	 *
+	 * @param string $name 関数名
+	 * @param array $keyvalues キーバリューリテラル配列
+	 * @return string ソースコード
+	 */
+	public static function makeStaticFunction(string $name, array $keyvalues, string $comment) : string {
+		$function = "\t/**\n";
+		$function.= "\t * {$comment}\n";
+		$function.= "\t *\n";
+		$function.= "\t * @return array {$comment}連想配列\n";
+		$function.= "\t */\n";
+		$function.= "\tpublic static function {$name}() : array {\n";
+		$function.= "\t\treturn array(\n";
+		
+		foreach ($keyvalues as $kv) {
+			$period = ($kv === end($keyvalues)) ? "" : ",";
+			$function.= "\t\t\t{$kv}{$period}\n";
+		}
+		
+		$function.= "\t\t);\n";
+		$function.= "\t}\n";
+		return $function;
+	}
+	/**
+	 * added: 170111 キーバリュー形式の文字列を 連想配列に変換する
+	 *
+	 * @param string $csv キーバリュー形式の文字列
+	 * @return array 連想配列
+	 */
+	public static function toArray(string $csv) : array {
+		$array = array();
+		foreach (explode(",", $csv) as $s) {
+			$ss = explode(":", $s);
+			if (count($ss) < 2) continue;
+			$array[$ss[0]] = $ss[1];
+		}
+		return $array;
+	}
+	/**
+	 * added: 170120 日付文字列の妥当性を確認する
+	 * modified: 170614 ハイフン区切りの日付書式に対応
+	 *
+	 * @param string $string 日付文字列
+	 * @return bool 日付文字列が有効な場合にTRUE、そうでない場合にFALSEを返す
+	 */
+	public static function isDate(string $string) {
+		if (strpos($string, "-") !== false) $ss = explode("-", Filter::get($string, 10, "[^0-9\-]"));
+		else $ss = explode("/", Filter::get($string, 10, "[^0-9/]"));
+		if (count($ss) != 3) return false;
+		if (!checkdate((int) $ss[1], (int) $ss[2], (int) $ss[0])) return false;
+		return true;
+	}
+	/**
+	 * added: 190521 日付配列の妥当性を確認する
+	 *
+	 * @param array $date 日付配列
+	 * @return bool 日付配列が有効な場合にTRUE、そうでない場合にFALSEを返す
+	 */
+	public static function isDateArray(array $date) {
+		if (count($date) != 3) return false;
+		if (!checkdate((int) $date[1], (int) $date[2], (int) $date[0])) return false;
+		return true;
+	}
+	/**
+	 * added: 171116 メールアドレスの妥当性を確認する
+	 *
+	 * @param string $string メールアドレス文字列
+	 * @return bool メールアドレス文字列が有効な場合にTRUE、そうでない場合にFALSEを返す
+	 */
+	public static function isMail(string $string) {
+		$exp = "/^([a-zA-Z0-9])+([a-zA-Z0-9\._-])*@([a-zA-Z0-9_-])+([a-zA-Z0-9\._-]+)+$/";
+		return (preg_match($exp, $string));
+	}
+}

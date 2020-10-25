@@ -1,0 +1,274 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * 翻訳API実装クラス
+ *
+ * プロパティーアクセスは__get()__set()マジックメソッドによって制御される。
+ *
+ * @package    Lib.Protect
+ * @copyright  Copyright (c) 2017-2020 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.200503
+ */
+namespace Lib;
+
+require_once("Common/DAC.class");
+require_once("Common/Trace.class");
+
+class Translator {
+	/**
+	 * @property-read string $subscriptionKey Microsoft (R) Cognitive Services Subscription-Key
+	 * @property-read string $language 翻訳言語
+	 * @property-read string $pathCacheFile 言語ごとのキャッシュデータファイルパス
+	 * @property-read string $message エラーメッセージ
+	 */
+	private $subscriptionKey;
+	private $language;
+	private $pathCacheFile;
+	private $message;
+	/**
+	 * コンストラクタ
+	 *
+	 * @param string $subscriptionKey Microsoft (R) Cognitive Services Subscription-Key
+	 * @param string $language 翻訳言語
+	 */
+	public function __construct(string $subscriptionKey, string $language) {
+		$this->subscriptionKey = $subscriptionKey;
+		$this->language = $language;
+	}
+	/**
+	 * マジックメソッドゲッター
+	 *
+	 * @param string $name メンバ変数名
+	 */
+	public function __get(string $name) {
+		return $this->$name;
+	}
+	/**
+	 * マジックメソッドセッター
+	 *
+	 * @param string $name メンバ変数名
+	 * @param mixed $value メンバ変数値
+	 */
+	public function __set(string $name, $value) { }
+	/**
+	 * Microsoft (R) Translator API に接続して翻訳する
+	 *
+	 ` @param array $array 翻訳対象配列の参照
+	 * @return bool 成功時に true を返す
+	 */
+	private function translate(&$array) {
+		try {
+			// note: アクセストークン獲得
+			$url = "https://api.cognitive.microsoft.com/sts/v1.0/issueToken?Subscription-Key={$this->subscriptionKey}";
+			$ch = curl_init($url);
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+			curl_setopt($ch, CURLOPT_POST, true);
+			curl_setopt($ch, CURLOPT_POSTFIELDS, null);
+			$token= curl_exec($ch);
+			curl_close($ch);
+
+			// note: 翻訳文獲得
+			$appId = urlencode("Bearer {$token}");
+			$ch = curl_init();
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+			curl_setopt($curl, CURLOPT_CUSTOMREQUEST, "GET");
+			foreach ($array as $k => $v) {
+				// note: #は翻訳できない
+				$val = urlencode(str_replace("#", "", $v));
+				$url = "https://api.microsofttranslator.com/v2/http.svc/Translate?text={$val}&to={$this->language}&category=generalnn&appid={$appId}";
+				//Trace::setText($url);
+				curl_setopt($ch, CURLOPT_URL, $url);
+				$res = curl_exec($ch);
+				//Trace::setText($res);
+				$errno = curl_errno($ch);
+				$error = curl_error($ch);
+
+				if ($errno !== CURLE_OK) throw new \Exception("ERROR No.{$errno}: {$error} In ({$url})");
+				$xml = (array) new \SimpleXMLElement($res);
+				
+				if ($xml["body"]) {
+					// added: 190219 fromエラーを回避（言語判定できない場合にエラーが返されると思われる）
+					// Message: 'from' must be a valid language&#xD; Parameter name: from
+					if ($xml["body"]->p[1] == "Parameter: from") continue;
+					else throw new \Exception("{$xml["body"]->p[2]}\n{$xml["body"]->p[3]}");
+				}
+				$array[$k] = $xml[0];
+			}
+			curl_close($ch);
+			return true;
+		} catch (\Exception $ex) {
+			$this->message = $ex->getMessage();
+			return false;
+		}
+	}
+	/**
+	 * Microsoft (R) Translator API v3.0 に接続して翻訳する
+	 *
+	 ` @param array $array 翻訳対象配列の参照
+	 * @return bool 成功時に true を返す
+	 */
+	private function translateV3(&$array) {
+		try {
+			// note: アクセストークン獲得（グローバルアクセスポイント）
+			$url = "https://api.cognitive.microsoft.com/sts/v1.0/issueToken";
+			$headers[] = "Ocp-Apim-Subscription-Key: {$this->subscriptionKey}";
+			$ch = curl_init($url);
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+			curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+			curl_setopt($ch, CURLOPT_POST, true);
+			curl_setopt($ch, CURLOPT_POSTFIELDS, null);
+			$token= curl_exec($ch);
+			curl_close($ch);
+			//Trace::setText($token);
+
+			// note: 翻訳文獲得
+			$url = "https://api.cognitive.microsofttranslator.com/translate?api-version=3.0";
+			$url.= "&to={$this->language}";
+			$url.= "&textType=html";
+			$headers[] = "Authorization: Bearer {$token}";
+			$headers[] = "Content-Type: application/json; charset=UTF-8";
+			foreach ($array  as $k => $v) {
+				$data = json_encode(["Text" => $v]);
+				$ch = curl_init($url);
+				curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+				curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+				curl_setopt($ch, CURLOPT_POST, true);
+				curl_setopt($ch, CURLOPT_POSTFIELDS, "[{$data}]");
+				$res = curl_exec($ch);
+				//Trace::setText($res);
+				
+				$errno = curl_errno($ch);
+				$error = curl_error($ch);
+				if ($errno !== CURLE_OK) throw new \Exception("CURL{$errno}: {$error} {$data}");
+
+				$res = json_decode($res, true);
+				//Trace::setText(print_r($res, true));
+				//var_dump($res[0]["translations"][0]["text"]);
+
+				if ($res["error"]) throw new \Exception("ERROR: {$res["error"]["code"]} {$res["error"]["message"]} {$data}");
+				$array[$k] = $res[0]["translations"][0]["text"];
+				curl_close($ch);
+			}
+			return true;
+		} catch (\Exception $ex) {
+			$this->message = $ex->getMessage();
+			return false;
+		}
+	}
+	/**
+	 * キャッシュデータベースを作成する
+	 *
+	 * @return bool 成功時に true を返す
+	 */
+	private function loadCacheFile() {
+		$dir = "{$_SERVER["DOCUMENT_ROOT"]}/_DATA";
+		$path = "{$dir}/{$this->language}.db";
+		
+		// note: ディレクトリ作成
+		if (!is_dir($dir)) {
+			mkdir($dir, 0755);
+			file_put_contents("{$dir}/.htaccess", "deny from all\n");
+		}
+		// note: データファイルが存在する場合は true
+		if (is_file($path)) {
+			$this->pathCacheFile = $path;
+			return true;
+		}
+		
+		// note: データベース作成
+		touch($path);
+		$dac = new DAC(["path" => $path], "sqlite");
+		try {
+			$dac->open();
+			$dac->command = "CREATE TABLE [t_text] (
+				[ROWID] INTEGER PRIMARY KEY AUTOINCREMENT,
+				[element] TEXT,
+				[plain] TEXT,
+				[translate] TEXT)";
+			$dac->execute();
+
+			$this->pathCacheFile = $path;
+			return true;
+		} catch (\Exception $ex) {
+			$this->message = $ex->getMessage();
+			return false;
+		} finally {
+			$dac->close();
+		}
+	}
+	/**
+	 * キャッシュデータベースから翻訳テキストを獲得し、該当データが無い場合は翻訳を実行し
+	 * 結果をキャッシュデータベースに保存する
+	 *
+	 ` @param array $array 翻訳対象配列の参照
+	 * @return bool 成功時に true を返す
+	 */
+	public function setTranslateText(&$array) {
+		if (!$this->loadCacheFile()) return false;
+
+		$dac = new DAC(["path" => $this->pathCacheFile], "sqlite", false);
+		$arrayTranslate = array();
+		try{
+			$dac->open();
+			foreach (array_keys($array) as $key) {
+				$dac->clear();
+				$dac->setColumn("plain, translate");
+				$dac->setOption("element = [0]", $key);
+				$rows = $dac->select("t_text");
+				
+				if (!$rows[0]) {
+					// note: 該当データが無い場合は翻訳対象文字列を保存する
+					$dac->clear();
+					$dac->setData("element", $key);
+					$dac->setData("plain", $array[$key]);
+					$dac->insert("t_text");
+				} else if ($array[$key] != $rows[0]["plain"]) {
+					// note: 翻訳対象文字列がキャッシュデータと異なる場合は更新する
+					$dac->clear();
+					$dac->setData("plain", $array[$key]);
+					$dac->setOption("element = [0]", $key);
+					$dac->update("t_text");
+				} else if ($rows[0]["translate"]) {
+				// note: キャッシュデータが空で無い場合は獲得する
+					$arrayTranslate[$key] = $rows[0]["translate"];
+					unset($array[$key]);
+				}
+			}
+		} catch (\Exception $ex) {
+			$this->message = $ex->getMessage();
+			return false;
+		} finally {
+			$dac->close();
+		}
+		// note: 未翻訳のテキストが無い場合はリターン
+		if (count($array) == 0) {
+			$array = $arrayTranslate;
+			return true;
+		}
+		//Trace::setText(print_r($array, true));
+		
+		// note: 変更されたテキストまたは未翻訳のテキストを翻訳する
+		// modified: 200503 V3に移行
+		if (!$this->translateV3($array)) return false;
+		// note: 翻訳テキストを保存する
+		try{
+			$dac->open();
+			foreach ($array as $k => $v) {
+				$dac->clear();
+				$dac->setData("translate", $v);
+				$dac->setOption("element = [0]", $k);
+				$dac->update("t_text");
+			}
+			// note: 翻訳テキストとキャッシュテキストをマージする
+			$array = array_merge($array, $arrayTranslate);
+			ksort($array);
+			return true;
+		} catch (\Exception $ex) {
+			$this->message = $ex->getMessage();
+			return false;
+		} finally {
+			$dac->close();
+		}
+	}
+}

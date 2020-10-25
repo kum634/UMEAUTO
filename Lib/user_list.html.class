@@ -1,0 +1,53 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * ユーザーリストページクラス
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2020 Barman Soft, Inc.
+ * @license    namespace Lib; The Clear BSD License
+ * @version    Lib Framework v3.2.200419
+ */
+namespace Lib;
+
+require_once("Conf.inc");
+require_once("Common/Page.class");
+require_once("Common/DAC.class");
+
+class Page_User_List extends Page {
+	public $title;
+	public $rows;
+	/**
+	 * 
+	 */
+	public function default(){
+		Lib::authPage($this);
+		$this->title = "Users - ";
+		
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setColumn("ROWID");
+		$dac->setColumn("user_id");
+		$dac->setColumn("user_name");
+		$dac->setColumn("is_developer");
+		$dac->setOrder("user_name");
+		
+		if (!$dac->selectRows("t_user", $rows)) {
+			$_SESSION[DOMAIN]["Lib.page.index"]["errors"]["message"] = $dac->message;
+			header("Location: index.html");
+			exit();
+		} else {
+			$this->rows = $rows;
+			return true;
+		}
+	}
+}
+/**
+ * ページインスタンス生成
+ * 実行パス、ルール連想配列及びページセッション名を指定する
+ */
+$page = new Page_User_List(__DIR__, null,"Lib.page.user");
+/**
+ * イベント発生時のコールバック関数、移動先及びセッション保存の有無をセットしload()を実行する
+ */
+$page->setEvent("default", null, array($page, "default"), "", false);
+$page->load();

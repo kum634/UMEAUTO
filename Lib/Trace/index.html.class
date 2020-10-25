@@ -1,0 +1,131 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * トレースページクラス
+ *
+ * プロパティーアクセスは__get()__set()マジックメソッドによって制御される。
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2018 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.1.181228
+ */
+namespace Lib;
+
+require_once("../Conf.inc");
+require_once("Common/Filter.class");
+
+class Page_Index {
+	/**
+	 * @property-read string $path アクセスURLの相対パス
+	 */
+	private $path = "../../";
+	/**
+	 * マジックメソッドゲッター
+	 *
+	 * @param string $name メンバ変数名
+	 */
+	public function __get(string $name) { return $this->$name; }
+	/**
+	 * マジックメソッドセッター
+	 *
+	 * @param string $name メンバ変数名
+	 * @param mixed $value メンバ変数値
+	 */
+	public function __set(string $name, $value) { }
+	/**
+	 * イベント処理
+	 *
+	 * @param string $name メンバ変数名
+	 * @param mixed $value メンバ変数値
+	 */
+	public function load() {
+		if (!isset($_SESSION[DOMAIN]["Lib.user"])) {
+			header("Location: ../login.html");
+			exit();
+		}
+		if ($_POST["action"] == "remove_trace") $this->removeTrace();
+		if ($_POST["action"] == "reset_trace") $this->resetTrace();
+	}
+	/**
+	 * Ajaxアクセスキーに対し指定キーのトレースセッションを破棄する
+	 */
+	public function removeTrace() {
+		try {
+			$key = Filter::Get($_POST["key"], 9, "[^0-9]");
+			if ($key == "") throw new \Exception("有効なキーが送信されませんでした。");
+
+			unset($_SESSION[DOMAIN]["trace"][$key]);
+			echo $this->getTraceTag();
+			exit();
+		} catch (\Exception $ex) {
+			echo "FAILURE: " . $ex->getMessage();
+			exit();
+		}
+	}
+	/**
+	 * Ajaxアクセスキーに対トレースセッションをすべて破棄する
+	 */
+	public function resetTrace() {
+		try {
+			unset($_SESSION[DOMAIN]["trace"]);
+			echo $this->getTraceTag();
+			exit();
+		} catch (\Exception $ex) {
+			echo "FAILURE: " . $ex->getMessage();
+			exit();
+		}
+	}
+	/**
+	 * トレースセッションをテーブル行に出力する
+	 */
+	public function getTraceTag() : string {
+		$tag = "<tr>\n";
+		$tag.= "	<th>日時</th>\n";
+		$tag.= "	<th>出力メッセージ</th>\n";
+		$tag.= "	<th>ソースファイル</th>\n";
+		$tag.= "	<th></th>\n";
+		$tag.= "</tr>\n";
+		
+		$callback = function ($value, $key) use (&$tag) {
+			$entities = htmlspecialchars($value["value"], ENT_QUOTES);
+			$tag.= "<tr>\n";
+			$tag.= "	<td>{$value["time"]}</td>\n";
+			$tag.= "	<td>{$value["message"]}<br>{$entities}</td>\n";
+			$tag.= "	<td>{$value["file"]} {$value["line"]}</td>\n";
+			$tag.= "	<td><button data-key='{$key}'>X</button></td>\n";
+			$tag.= "</tr>\n";
+		};
+		if ($_SESSION[DOMAIN]["trace"]) array_walk($_SESSION[DOMAIN]["trace"], $callback);
+		else $tag = "<tr><td colspan='3'>保存されたトレース情報はありません。</td></tr>\n";
+		return $tag;
+	}
+	/**
+	 * トレース以外のセッションをテーブルに出力する
+	 */
+	public function getSessionTag() : string {
+		$callback = function ($value, $key) use (&$tag, &$callback) {
+			if ($key === "trace") return;
+			if (is_array($value)) {
+				$tag.= "<table>\n";
+				$tag.= "<tr>\n";
+				$tag.= "<th>{$key}</th>\n";
+				$tag.= "<td>\n";
+				array_walk($value, $callback);
+				$tag.= "</td>\n";
+				$tag.= "</tr>\n";
+				$tag.= "</table>\n";
+			} else {
+				$tag.= "<p>[{$key}] = {$value}</p>\n";
+			}
+		};
+		if (count($_SESSION) > 0) array_walk($_SESSION, $callback);
+		if (!$tag) $tag = "<table><tr><td style='text-align:center'>保存されたセッションはありません。</td></tr></table>\n";
+		return $tag;
+	}
+}
+/**
+ * ページインスタンス生成しload()を実行する
+ */
+$page = new Page_Index();
+$page->load();

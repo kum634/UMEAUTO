@@ -1,0 +1,194 @@
+<?php
+/**
+ * Support editor page class
+ *
+ * @charset    UTF-8N
+ * @package    Lib
+ * @copyright  Copyright (c) 2017-2020 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html
+ * @version    Lib Framework v3.2.200127
+ */
+namespace Lib;
+
+require_once("{$_SERVER["DOCUMENT_ROOT"]}/Lib/Conf.inc");
+require_once("Common/Page.class");
+require_once("Common/DAC.class");
+
+class Page_Support_Editor extends Page {
+	/**
+	 * 
+	 */
+	public function default() {
+		Lib::authPage($this);
+	}
+	/**
+	 * コンテンツ自動保存
+	 */
+	public function autoSave() {
+		Lib::authPage($this);
+		Filter::tab2space($_POST["content"]);
+		
+		$tm = date("Y/m/d H:i:s");
+		$ss = explode(".", $_POST["field"]);
+
+		if (!$_POST["ROWID"]) die("該当するデータが見つかりませんでした。");
+		if (count($ss) < 2) dir("フィールドを特定できませんでした。");
+		
+		$dac = new DAC(Lib::connection(), "mysql");
+		if ($ss[0] == "t_page") {
+			$dac->setData("content", $_POST["content"]);
+			$dac->setData("style", $_POST["style"]);
+			$dac->setData("script", $_POST["script"]);
+		} else {
+			$dac->setData($ss[1], $_POST["content"]);
+		}
+		if (in_array($ss[0], array("t_css", "t_page", "t_template"))) {
+			$dac->setData("tm_update", $tm);
+			$dac->setData("user_id", $_SESSION[DOMAIN]["Lib.user"]["user_id"]);
+		}
+		$dac->setOption("ROWID = [0]", $_POST["ROWID"]);
+		$dac->updateData($ss[0], 1) or die($dac->message);
+
+		if ($ss[0] == "t_css") $this->writeCSS($_POST["ROWID"]);
+		else if ($ss[0] == "t_js") $this->writeJS($_POST["ROWID"]);
+		else if ($ss[0] == "t_template") $this->writeTemplate($_POST["ROWID"]);
+		else if ($ss[0] == "t_page") $this->writePage($_POST["ROWID"], false);
+		else if ($ss[0] == "t_event") $this->writePage($_POST["ROWID"], true);
+		
+		echo "SUCCEED:Saved at {$tm}.";
+		exit();
+	}
+	/**
+	 * CSS書き出し
+	 */
+	public function writeCSS($ROWID) {
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setOption("ROWID = [0]", $ROWID);
+		$dac->setColumn("css_name, file_path, content, n_min, n_max");
+		$dac->selectRows("t_css", $rows) or die($dac->message);
+		$row = $rows[0];
+
+		if ($row["file_path"]) $path = "{$_SERVER["DOCUMENT_ROOT"]}/{$row["file_path"]}/{$row["css_name"]}.css";
+		else $path = "{$_SERVER["DOCUMENT_ROOT"]}/css/{$row["css_name"]}.css";
+		$lines = explode("\n", $row["content"]);
+		
+		if (stripos($lines[0], "@charset ") !== false) $lines[0] = "";
+				if ($row["n_min"] && $row["n_max"]) {
+			$css = "@media screen and (min-width: {$row["n_min"]}px) and (max-width: {$row["n_max"]}px){\n";
+			foreach ($lines as $line) $css.= "  {$line}\n";
+			$css.= "}";
+		} else if ($row["n_min"]) {
+			$css = "@media screen and (min-width: {$row["n_min"]}px){\n";
+			foreach ($lines as $line) $css.= "  {$line}\n";
+			$css.= "}";
+		} else if ($row["n_max"]) {
+			$css = "@media screen and (max-width: {$row["n_max"]}px){\n";
+			foreach ($lines as $line) $css.= "  {$line}\n";
+			$css.= "}";
+		} else {
+			// note: charsetはメディアクエリー以外に限定する
+			$css = "@charset \"utf-8\";\n";
+			foreach ($lines as $line) $css.= "{$line}\n";
+		}
+		file_put_contents($path, $css) or die("CSSの書き出しに失敗しました。");
+	}
+	/**
+	 * JS書き出し
+	 */
+	public function writeJS($ROWID) {
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setOption("ROWID = [0]", $ROWID);
+		$dac->setColumn("js_name, file_path, content");
+		$dac->selectRows("t_js", $rows) or die($dac->message);
+		$row = $rows[0];
+
+		if ($row["file_path"]) $path = "{$_SERVER["DOCUMENT_ROOT"]}/{$row["file_path"]}/{$row["js_name"]}.js";
+		else $path = "{$_SERVER["DOCUMENT_ROOT"]}/js/{$row["js_name"]}.css";
+		file_put_contents($path, $row["content"]) or die("JSの書き出しに失敗しました。");
+	}
+	/**
+	 * テンプレート書き出し
+	 */
+	public function writeTemplate($ROWID) {
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setOption("ROWID = [0]", $ROWID);
+		$dac->setColumn("tl_type, file_name, file_path, content");
+		$dac->selectRows("t_template", $rows) or die($dac->message);
+		$row = $rows[0];
+
+		if ($row["file_name"]) {
+			if ($row["file_path"]) $path = "{$_SERVER["DOCUMENT_ROOT"]}/{$row["file_path"]}/{$row["file_name"]}.tmp";
+			else $path = "{$_SERVER["DOCUMENT_ROOT"]}/tmp/{$row["file_name"]}.tmp";
+		} else {
+			if ($row["file_path"]) $path = "{$_SERVER["DOCUMENT_ROOT"]}/{$row["file_path"]}/{$row["tl_type"]}_{$ROWID}.tmp";
+			else $path = "{$_SERVER["DOCUMENT_ROOT"]}/tmp/{$row["tl_type"]}_{$ROWID}.tmp";
+		}
+		file_put_contents($path, $row["content"]) or die("テンプレートの書き出しに失敗しました。");
+	}
+	/**
+	 * ページ書き出し
+	 */
+	public function writePage($ROWID, $isEvent) {
+		$dac = new DAC(Lib::connection(), "mysql", false);
+
+		if ($isEvent) {
+			$dac->setOption("ROWID = [0]", $ROWID);
+			$dac->setColumn("t_page_ROWID");
+			$dac->selectRows("t_event", $rows) or die($dac->message);
+			$ROWID = $rows[0]["t_page_ROWID"];
+		}
+		$dac->clear();
+		$dac->setOption("p.ROWID = [0]", $ROWID);
+		$dac->setColumn("p.*");
+		$dac->setColumn("h.file_path As header_path , h.file_name As header_name");
+		$dac->setColumn("f.file_path As footer_path , f.file_name As footer_name");
+		$view = "t_page As p";
+		$view.= " Left Join t_template As h On (p.header_temp = h.ROWID)";
+		$view.= " Left Join t_template As f On (p.footer_temp = f.ROWID)";
+		$dac->selectRows($view, $rows) or die($dac->message);
+		$row = $rows[0];
+
+		$dac->clear();
+		$dac->setColumn("*");
+		$dac->setOption("t_page_ROWID = [0]", $ROWID);
+		$dac->selectRows("t_rule", $rowsRule) or die($dac->message);
+		$dac->selectRows("t_event", $rowsEvent) or die($dac->message);
+
+		// note: HTMLファイル書き出し
+		$path = ($rows[0]["header_path"]) ? "{$_SERVER["DOCUMENT_ROOT"]}/{$rows[0]["header_path"]}" : "{$_SERVER["DOCUMENT_ROOT"]}/tmp";
+		$path = ($rows[0]["header_name"]) ? "{$path}/{$rows[0]["header_name"]}.tmp" : "{$path}/header_{$rows[0]["header_temp"]}.tmp";
+		$header = file_get_contents($path);
+		
+		$path = ($rows[0]["footer_path"]) ? "{$_SERVER["DOCUMENT_ROOT"]}/{$rows[0]["footer_path"]}" : "{$_SERVER["DOCUMENT_ROOT"]}/tmp";
+		$path = ($rows[0]["footer_name"]) ? "{$path}/{$rows[0]["footer_name"]}.tmp" : "{$path}/footer_{$rows[0]["footer_temp"]}.tmp";
+		$footer = file_get_contents($path);
+		
+		$content = Filter::makePage($rows[0], $header, $footer);
+		$path = "{$_SERVER["DOCUMENT_ROOT"]}/{$row["url"]}";
+		file_put_contents($path, $content) or die("ファイルの書き出しに失敗しました。");
+
+		// note: ページクラス書き出し
+		$template = file_get_contents("{$_SERVER["DOCUMENT_ROOT"]}/Lib/tmp/pageclass.tmp");
+		$source = Filter::makePageClass($rows[0], $rowsRule, $rowsEvent, $template);
+		$path = "{$_SERVER["DOCUMENT_ROOT"]}/{$row["url"]}.class";
+		file_put_contents($path, $source) or die("ファイルの書き出しに失敗しました。");
+	}
+}
+
+$form["ROWID"] = new Rule(9, "[^0-9]", "a", null, false, false);
+$form["field"] = new Rule(20, "[^0-9a-zA-Z\-_.]", "a", null, false, false);
+$form["content"] = new Rule(200000, "", null, null, false, false);
+$form["style"] = new Rule(200000, "", null, null, false, false);
+$form["script"] = new Rule(200000, "", null, null, false, false);
+/**
+ * ページインスタンス生成
+ * 実行パス、ルール連想配列及びページセッション名を指定する
+ */
+$page = new Page_Support_Editor(__DIR__, $form);
+/**
+ * イベント発生時のコールバック関数、移動先及びセッション保存の有無をセットしload()を実行する
+ */
+$page->setEvent("default", "", array($page, "default"), "", false);
+$page->setEvent("action", "autoSave", array($page, "autoSave"), "", false);
+$page->canCrossPagePostBack = true;
+$page->load();

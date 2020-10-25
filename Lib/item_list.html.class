@@ -1,0 +1,108 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * アイテムリストページクラス
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2020 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.200419
+ */namespace Lib;
+
+require_once("Conf.inc");
+require_once("Common/Page.class");
+require_once("Common/DAC.class");
+require_once("Common/Pager.class");
+
+class Page_Item_List extends Page {
+	public $title;
+	public $rows;
+	public $pager;
+	/**
+	 * 
+	 */
+	public function default() {
+		Lib::authPage($this);
+		if (!$_GET["category"] || !in_array($_GET["category"], array_keys(Fixed::category()))) {
+			$this->errors["message"] = "必要な情報が送信されませんでした。";
+			return true;
+		}
+
+		// note: カテゴリーに該当するアイテムを獲得
+		$dac = new DAC(Lib::connection(), "mysql");
+		$dac->setColumn("ROWID");
+		$dac->setColumn("category");
+		$dac->setColumn("uri_image");
+		$dac->setColumn("title");
+		$dac->setColumn("tm_write");
+		$dac->setColumn("is_open");
+		$dac->setOrder("tag, tm_write");
+		$dac->setOption("category = [0]", $_GET["category"]);
+		if ($_GET["keyword"]) {
+			foreach (explode(" ", $_GET["keyword"]) as $keyword) $option[] = "(title Like '%{$keyword}%') Or (text1 Like '%{$keyword}%') Or (text2 Like '%{$keyword}%') Or (tag Like '%{$keyword}%')";
+			$dac->setOption(implode(" Or ", $option));
+		}
+
+		$pager = new Pager();
+		$pager->limit = 20;
+		$pager->page = ($_GET["p"]) ? Filter::get($_GET["p"], 3, "[^0-9]", "a", "1000") : "1000";
+
+		if (!$dac->selectPageRows("t_item", $rows, $pager)) {
+			$this->errors["message"] = $dac->message;
+			return true;
+		}
+		
+		$this->rows = Filter::getEntities($rows);
+		$this->pager = $pager;
+
+		$array = Fixed::category();
+		$this->title = "{$array[$_GET["category"]]} - ";
+		return true;
+	}
+	/**
+	 * アイテムを複製する
+	 */
+	public function copy() {
+		Lib::authPage($this);
+		// note: 選択アイテムを獲得
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setColumn("*");
+		$dac->setOption("ROWID = [0]", $_POST["ROWID"]);
+		if (!$dac->selectRows("t_item", $rows)) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["message"] = $dac->message;
+			return false;
+		}
+		if (!$rows[0]) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["message"] = "選択されたコンテンツが見つかりませんでした。";
+			return false;
+		}
+		
+		$rows[0]["title"] = "{$rows[0]["title"]}のコピー";
+		$rows[0]["is_open"] = "0";
+		
+		$dac->clear();
+		$dac->setDataArray($rows[0], array("ROWID"));
+		if (!$ROWID = $dac->insertData("t_item", true, true)) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["message"] = $dac->message;
+			return false;
+		}
+		unset($_SESSION[DOMAIN][$this->sessionKey]);
+		return true;
+	}
+}
+/**
+ * フォーム要素とルールの連想配列
+ * 指定要素にフィルタールールと必須チェック及びセッション利用の有無を指定する
+ */
+$form["ROWID"] = new Rule(9, "[^0-9]", "a", null, false, false);
+/**
+ * ページインスタンス生成
+ * 実行パス、ルール連想配列及びページセッション名を指定する
+ */
+$page = new Page_Item_List(__DIR__, null, "Lib.page.item_list");
+/**
+ * イベント発生時のコールバック関数、移動先及びセッション保存の有無をセットしload()を実行する
+ */
+$page->setEvent("default", null, array($page, "default"), "", false);
+$page->setEvent("action", "copy", array($page, "copy"), "item_list.html?p={$_GET["p"]}&category={$_GET["category"]}", true);
+$page->load();

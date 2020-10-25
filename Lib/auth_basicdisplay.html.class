@@ -1,0 +1,102 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * ユーザーページクラス
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2020 Barman Soft, Inc.
+ * @license    namespace Lib; The Clear BSD License
+ * @version    Lib Framework v3.2.200419
+ */
+namespace Lib;
+
+require_once("Conf.inc");
+require_once("Common/Page.class");
+require_once("Common/DAC.class");
+
+class Page_Auth_BasicDisplay extends Page {
+	public $title;
+	/**
+	 * 
+	 */
+	public function default() {
+		Lib::authPage($this);
+
+		$this->values["redirect_uri"] = SSL_URL. "Lib/auth_basicdisplay.html";
+		$this->title = "Authorization - ";
+		return true;
+	}
+	/**
+	 * アプリIDとApp Secretをセッションに保存して認証URLを出力する
+	 */
+	public function getAuthURL() {
+		Lib::authPage($this);
+		if (!$_POST["app_id"] || !$_POST["app_secret"]) $this->response("Required data was not sent.", false);
+		
+		$res["url"] = "https://api.instagram.com/oauth/authorize";
+		$res["url"].= "?app_id={$_POST["app_id"]}";
+		$res["url"].= "&scope=user_profile,user_media";
+		$res["url"].= "&response_type=code";
+		$res["url"].= "&redirect_uri=". SSL_URL. "Lib/auth_basicdisplay.html";
+		$this->response($res, true);
+	}
+	/**
+	 * 認証コードを使用してアクセストークンを取得する
+	 */
+	public function getToken() {
+		Lib::authPage($this);
+		if (!$_POST["code"] || !$_POST["app_id"] || !$_POST["app_secret"]) $this->response("Required data was not sent.", false);
+
+		try {
+			$url = "https://api.instagram.com/oauth/access_token";
+			$ch = curl_init($url);
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+			curl_setopt($ch, CURLOPT_POST, true);
+		
+			$data["app_id"] = $_POST["app_id"];
+			$data["app_secret"] = $_POST["app_secret"];
+			$data["code"] = $_POST["code"];
+			$data["grant_type"] = "authorization_code";
+			$data["redirect_uri"] = SSL_URL. "Lib/auth_basicdisplay.html";
+			curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+			$res = json_decode(curl_exec($ch), true);
+			//var_dump($data);
+			//var_dump($res);
+			if ($res["error_type"]) throw new \Exception("{$res["error_type"]}\n{$res["error_message"]}");
+			curl_close($ch);
+			
+			// note: 200226 Long-Lived Access Token 取得
+			$url = "https://graph.instagram.com/access_token";
+			$url.= "?grant_type=ig_exchange_token";
+			$url.= "&client_secret={$_POST["app_secret"]}";
+			$url.= "&access_token={$res["access_token"]}";
+			$ch = curl_init($url);
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+			$res = json_decode(curl_exec($ch), true);
+			curl_close($ch);
+			$this->response($res, true);
+		} catch (\Exception $ex) {
+			curl_close($ch);
+			$this->response($ex->getMessage(), false);
+		}
+	}
+}
+/**
+ * フォーム要素とルールの連想配列
+ * 指定要素にフィルタールールと必須チェック及びセッション利用の有無を指定する
+ */
+$form["app_id"] = new Rule(100, "[^0-9a-zA-Z]", "a", null, false, true);
+$form["app_secret"] = new Rule(100, "[^0-9a-zA-Z]", "a", null, false, true);
+$form["code"] = new Rule(2000, "", null, null, false, false);
+/**
+ * ページインスタンス生成
+ * 実行パス、ルール連想配列及びページセッション名を指定する
+ */
+$page = new Page_Auth_BasicDisplay(__DIR__, $form, "Lib.page.auth_basicdisplay");
+/**
+ * イベント発生時のコールバック関数、移動先及びセッション保存の有無をセットしload()を実行する
+ */
+$page->setEvent("default", null, array($page, "default"), "", false);
+$page->setEvent("action", "getAuthURL", array($page, "getAuthURL"), "", true);
+$page->setEvent("action", "getToken", array($page, "getToken"), "", true);
+$page->load();

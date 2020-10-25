@@ -1,0 +1,27 @@
+@media screen and (min-width: 601px) and (max-width: 768px){
+  
+  /**
+   * lib_landscape.css
+   *
+   * @copyright  Copyright (c) 
+   * @version    
+   */
+  body {
+    font-size: 15px;
+  }
+  div.wrap {
+    min-width: initial;
+  }
+  /*----------------------------------------------------------------------
+  section
+  ------------------------------------------------------------------------*/
+  section div.wrap {
+    flex-direction: column-reverse;
+  }
+  /*----------------------------------------------------------------------
+  article
+  ------------------------------------------------------------------------*/
+  section div.wrap > article {
+    padding-left: 0;
+  }
+}

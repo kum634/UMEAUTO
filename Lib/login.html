@@ -1,0 +1,75 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * ログインページ
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2019 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.200114
+ */
+require_once("login.html.class");
+?>
+<?php include("inc/header.inc"); ?>
+<style>
+header nav {
+	display: none;
+}
+section div.wrap {
+	display: block;
+	padding: 20px;
+	width: 460px;
+	height: 240px;
+	min-height: auto;
+	background-color: #dedede;
+	border: 1px solid #ccc;
+	border-radius: 4px;
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	overflow: hidden;
+}
+article {
+	text-align: center;
+}
+article h2 {
+	line-height: 30px;
+}
+article p {
+	color: #ff0000;
+}
+input[type="text"], input[type="password"] {
+	display: block;
+	margin: 0 auto;
+	width: 80%;
+}
+section form button {
+	margin-top: 10px;
+}
+</style>
+<section>
+	<div class="wrap clearfix">
+		<article>
+			<h2>LOGIN</h2>
+			<?= ($page->errors["form"]) ? "<p>{$page->errors["form"]}</p>" : "<p>&nbsp;</p>" ?>
+		</article>
+		<form method="post">
+			<dl>
+				<dd>
+					<input type="text" name="user_id" placeholder="User ID" value="<?= $page->values["user_id"] ?>">
+				</dd>
+			</dl>					
+			<dl>
+				<dd>
+					<input type="password" name="password" placeholder="Password">
+				</dd>
+			</dl>
+			<div class="submit">
+				<button>ログイン</button>
+				<input type="hidden" id="action" name="action" value="login">
+			</div>
+		</form>
+	</div>
+</section>
+<?php include("inc/footer.inc"); ?>

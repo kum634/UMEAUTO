@@ -1,0 +1,395 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * Fixed編集ページクラス
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2020 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.200419
+ */
+namespace Lib;
+
+require_once("Conf.inc");
+require_once("Common/Page.class");
+require_once("Common/DAC.class");
+
+class Page_Fixed extends Page {
+	/**
+	 * 定量項目リストを格納する配列
+	 */
+	public $title;
+	public $rows;
+	/**
+	 * 
+	 */
+	public function default() {
+		Lib::authPage($this);
+		if (!$_SESSION[DOMAIN]["Lib.user"]["is_developer"]) {
+			$_SESSION[DOMAIN]["Lib.page.fixed"]["errors"]["list"] = "定量項目の編集にはDeveloper権限が必要です。";
+			$this->location("fixed_list.html");
+		}
+		if($_GET["function"] != "NEW"){
+			$dac = new DAC(Lib::connection(), "mysql", false);
+			$dac->setColumn("*");
+			$dac->setOption("function = '[0]'", $_GET["function"]);
+			$dac->setOrder("n_index");
+			
+			if (!$dac->selectRows("t_fixed", $rows)) {
+				$this->errors["form"] = $dac->message;
+				return true;
+			} else if (!$rows[0]["function"]){
+				header("Location: fixed_list.html");
+				exit();
+			}
+			$this->rows = Filter::getEntities($rows);
+			if (!$this->values) {
+				$this->values["new_function"] = $rows[0]["function"];
+				$this->values["comment"] = $rows[0]["comment"];
+			}
+			$this->title = "Fixed::{$rows[0]["function"]}() - ";
+		} else {
+			$this->title = "New static array - ";
+		}
+	}
+	/**
+	 * 定量項目リストへ戻る
+	 */
+	public function back() {
+		Lib::authPage($this);
+		unset($_SESSION[DOMAIN][$this->sessionKey]);
+		return true;
+	}
+	/**
+	 * 定量項目を消去する
+	 */
+	public function delete() {
+		Lib::authPage($this);
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		// note: key&value削除のとき
+		if($_POST["ROWID"]) {
+			$dac->setOption("ROWID = '[0]'", $_POST["ROWID"]);
+			if (!$dac->deleteRows("t_fixed", 1)) {
+					$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = $dac->message;
+					return false;
+			}
+			unset($_SESSION[DOMAIN][$this->sessionKey]);
+			return true;
+		} else {
+			// note: メソッドを削除するとき
+			$dac->setOption("function = '[0]'", $_POST["old_function"]);
+			if (!$dac->deleteRows("t_fixed")) {
+					$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = $dac->message;
+					return false;
+			}
+			// note: 削除したメソッドをファイルに反映する
+			if(!$this->makeFile()) {
+				$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = "ファイル作成に失敗しました。";
+				return false;
+			}
+			unset($_SESSION[DOMAIN][$this->sessionKey]);
+			header("Location: fixed_list.html");
+			exit();
+		}
+	}
+	/**
+	 * 定量項目を保存する
+	 */
+	public function save() {
+		Lib::authPage($this);
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		// note: 関数名の被りがないかを確認する
+		if ($_POST["old_function"] != $_POST["new_function"]) {
+			$dac->setColumn("Count(*) cnt");
+			$dac->setOption("function = '[0]'", $_POST["new_function"]);
+
+			if (!$dac->selectRows("t_fixed", $rows)) {
+				$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = $dac->message;
+				return false;
+			}
+			if ($rows[0]["cnt"] > 0) {
+				$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = "指定のfunction名は既に使用されています";
+				return false;
+			}
+		}
+		
+		if(!$_POST["key"] && !$_POST["value"]) {
+			// note: メソッドを登録する
+			$dac->clear();
+			$dac->setData("function", $_POST["new_function"]);
+			$dac->setData("comment", $_POST["comment"]);
+			$dac->setOption("function = '[0]'", $_POST["old_function"]);
+			
+			if (!$dac->updateData("t_fixed")) {
+				$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = $dac->message;
+				return false;
+			}
+			if (!$this->makeFile()) {
+				$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = "ファイルの作成に失敗しました";
+				return false;
+			}
+			unset($_SESSION[DOMAIN][$this->sessionKey]);
+			header("Location: fixed_list.html");
+			exit();
+		} else {
+			// note: KeyValueを登録する
+			if ($_POST["ROWID"]) {
+				$dac->clear();
+				$dac->setData("key", $_POST["key"]);
+				$dac->setData("value", $_POST["value"]);
+				$dac->setOption("ROWID = '[0]'", $_POST["ROWID"]);
+				
+				if (!$dac->updateData("t_fixed", 1)) {
+					$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = $dac->message;
+					return false;
+				}
+			} else {
+				// note: 最終インディックスを獲得する
+				$dac->clear();
+				$dac->setOption("function = '[0]'", $_POST["old_function"]);
+				$dac->setColumn("Max(n_index) As max_index");
+				if (!$dac->selectRows("t_fixed", $rows, 1)) {
+					$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = $dac->message;
+					return false;
+				}
+				
+				$dac->clear();
+				$dac->setData("n_index", ($rows[0]["max_index"]) ? $rows[0]["max_index"] + 1 : 1);
+				$dac->setData("key", $_POST["key"]);
+				$dac->setData("value", $_POST["value"]);
+				$dac->setData("function", $_POST["new_function"]);
+				$dac->setData("comment", $_POST["comment"]);
+				
+				if (!$dac->insertData("t_fixed")) {
+					$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = $dac->message;
+					return false;
+				}
+			}
+			unset($_SESSION[DOMAIN][$this->sessionKey]);
+			$this->location("fixed.html?function={$_POST["new_function"]}");
+		}
+	}
+	/**
+	* Fixedファイルを出力する
+	*/
+	public function makeFile() {
+		$class = "<?php\n";
+		$class.= " /**\n";
+		$class.= " * 文字コード UTF-8N 改行コードLF\n";
+		$class.= " * 定量項目タティッククラス\n";
+		$class.= " *\n";
+		$class.= " * 定量項目に関するスタティックメソッドのみを実装している。\n";
+		$class.= " *\n";
+		$class.= " * @package    Lib\n";
+		$class.= " * @copyright  Copyright (c) " . date(Y) . " Barman Soft, Inc.\n";
+		$class.= " * @license    https://libframework.org/license.html The Clear BSD License\n";
+		$class.= " * @version    Lib Framework v3.2." . date(ymd) . "\n";
+		$class.= " */\n";
+		$class.= "namespace Lib;\n";
+		$class.= "\n";
+		$class.= "class Fixed {\n";
+
+		// note: データベース接続情報を出力する
+		$kv[] = "\"host\" => DB_HOST";
+		$kv[] = "\"dbname\" => DB_NAME";
+		$kv[] = "\"user\" => DB_USER";
+		$kv[] = "\"password\" => DB_PASS";
+		$class.= Filter::makeStaticFunction("connection", $kv, "データベース接続情報");
+		$kv = array();
+
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setColumn("*");
+		$dac->setOrder("function, n_index");
+		
+		if (!$dac->selectRows("t_fixed", $rows)) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = $dac->message;
+			return false;
+		}
+		
+		foreach ($rows as $row) {
+			if ($func != $row["function"]) {
+				if (count($kv) > 0) {
+					$class.= Filter::makeStaticFunction($func, $kv, $comment);
+					$kv = array();
+				}
+				$func = $row["function"];
+				$comment = $row["comment"];
+			}
+			$kv[] = "\"{$row["key"]}\" => \"{$row["value"]}\"";
+		}
+		if(count($kv) > 0) $class.= Filter::makeStaticFunction($func, $kv, $comment);
+		$class.= "}";
+		
+		$path = "Common/Fixed.class";
+		file_put_contents($path, $class);
+
+		return true;
+	}
+	/**
+	* ajax: 選択要素の順序を上げる
+	*/
+	public function moveUp() {
+		Lib::authPage($this);
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		try {
+			$dac->open();
+
+			// note: 対象レコードを獲得する
+			$dac->clear();
+			$dac->setColumn("n_index, function");
+			$dac->setOption("ROWID = [0]", $_POST["ROWID"]);
+			$rows = $dac->select("t_fixed", 1);
+			$index = $rows[0]["n_index"];
+			$function = $rows[0]["function"];
+			
+			// note: 上位のレコードを獲得する
+			$dac->clear();
+			$dac->setColumn("ROWID, n_index");
+			$dac->setOption("n_index < [0]", $index);
+			$dac->setOption("function = [0]", $function);
+			$dac->setOrder("n_index DESC");
+			$rows = $dac->select("t_fixed", 1);
+
+			if (count($rows) > 0) {
+				$dac->begin();
+				// note: 上位のレコードを更新する
+				$dac->clear();
+				$dac->setData("n_index", $index);
+				$dac->setOption("ROWID = [0]", $rows[0]["ROWID"]);
+				$dac->update("t_fixed", 1);
+				// note: 対象レコードを更新する
+				$dac->clear();
+				$dac->setData("n_index", $rows[0]["n_index"]);
+				$dac->setOption("ROWID = [0]", $_POST["ROWID"]);
+				$dac->update("t_fixed", 1);
+				$dac->commit();
+			}
+			$dac->clear();
+			$dac->setColumn("*");
+			$dac->setOption("function = [0]", $function);
+			$dac->setOrder("n_index");
+			$this->rows = $dac->select("t_fixed");
+
+		} catch (Exception $ex) {
+			die("FAILURE:" . $ex->getMessage());
+		} finally {
+			$dac->close();
+		}
+		echo $this->getKeyValueTag();
+		exit();
+	}
+	/**
+	* ajax: 選択要素の順序を下げる
+	*/
+	public function moveDown() {
+		Lib::authPage($this);
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		try {
+			$dac->open();
+
+			// note: 対象レコードを獲得する
+			$dac->clear();
+			$dac->setColumn("n_index, function");
+			$dac->setOption("ROWID = [0]", $_POST["ROWID"]);
+			$rows = $dac->select("t_fixed", 1);
+			$index = $rows[0]["n_index"];
+			$function = $rows[0]["function"];
+			
+			// note: 下位のレコードを獲得する
+			$dac->clear();
+			$dac->setColumn("ROWID, n_index");
+			$dac->setOption("n_index > [0]", $index);
+			$dac->setOption("function = [0]", $function);
+			$dac->setOrder("n_index");
+			$rows = $dac->select("t_fixed", 1);
+
+			if (count($rows) > 0) {
+				$dac->begin();
+				// note: 上位のレコードを更新する
+				$dac->clear();
+				$dac->setData("n_index", $index);
+				$dac->setOption("ROWID = [0]", $rows[0]["ROWID"]);
+				$dac->update("t_fixed", 1);
+				// note: 対象レコードを更新する
+				$dac->clear();
+				$dac->setData("n_index", $rows[0]["n_index"]);
+				$dac->setOption("ROWID = [0]", $_POST["ROWID"]);
+				$dac->update("t_fixed", 1);
+				$dac->commit();
+			}
+			$dac->clear();
+			$dac->setColumn("*");
+			$dac->setOption("function = [0]", $function);
+			$dac->setOrder("n_index");
+			$this->rows = $dac->select("t_fixed");
+
+		} catch (Exception $ex) {
+			die("FAILURE:" . $ex->getMessage());
+		} finally {
+			$dac->close();
+		}
+		echo $this->getKeyValueTag();
+		exit();
+	}
+	/**
+	* KeyValueリストを出力する
+	*/
+	public function getKeyValueTag() {
+		$html.= "<table>";
+		$html.= "	<thead>";
+		$html.= "	<tr>";
+		$html.= "		<td></td>";
+		$html.= "		<td>Key</td>";
+		$html.= "		<td>Value</td>";
+		$html.= "		<td></td>";
+		$html.= "		<td></td>";
+		$html.= "	</tr>";
+		$html.= "	</thead>";
+		$html.= "	<tbody>";
+		foreach ($this->rows as $row) {
+			$html.= "	<tr>";
+			$html.= "		<td>";
+			$html.= "			<a class=\"up\" href=\"javascript:void(0)\" data-rowid=\"{$row["ROWID"]}\" data-action=\"up\">↑</a>";
+			$html.= "			<a class=\"dw\" href=\"javascript:void(0)\" data-rowid=\"{$row["ROWID"]}\" data-action=\"dw\">↓</a>";
+			$html.= "		</td>";
+			$html.= "		<td>{$row["key"]}</td>";
+			$html.= "		<td>{$row["value"]}</td>";
+			$html.= "		<td class=\"edit\">";
+			$html.= "			<a class=\"edit\" href=\"javascript:void(0)\" data-rowid=\"{$row["ROWID"]}\">Edit</a>";
+			$html.= "		</td>";
+			$html.= "		<td class=\"edit\">";
+			$html.= "			<a class=\"delete\" href=\"javascript:void(0)\" data-rowid=\"{$row["ROWID"]}\">Remove</a>";
+			$html.= "		</td>";
+			$html.= "	</tr>";
+		}
+		$html.= "	</tbody>";
+		$html.= "</table>";
+		return $html;
+	}
+}
+/**
+ * フォーム要素とルールの連想配列
+ * 指定要素にフィルタールールと必須チェック及びセッション利用の有無を指定する
+ */
+$form["ROWID"] = new Rule(11, "[^0-9]", "a", null, false, false);
+$form["old_function"] = new Rule(100, "[^0-9a-zA-Z\-]", "a", null, false, true);
+$form["new_function"] = new Rule(100, "[^0-9a-zA-Z\-]", "a", null, true, true);
+$form["comment"] = new Rule(100, "", "a", null, false, true);
+$form["key"] = new Rule(100, "", "a", "0", false, false);
+$form["value"] = new Rule(100, "", null, null, false, false);
+
+/**
+ * ページインスタンス生成
+ * 実行パス、ルール連想配列及びページセッション名を指定する
+ */
+$page = new Page_Fixed(__DIR__, $form, "Lib.page.fixed");
+/**
+ * イベント発生時のコールバック関数、移動先及びセッション保存の有無をセットしload()を実行する
+ */
+$page->setEvent("default", null, array($page, "default"), "", false);
+$page->setEvent("action", "back", array($page, "back"), "fixed_list.html", false);
+$page->setEvent("action", "save", array($page, "save"), "", true);
+$page->setEvent("action", "delete", array($page, "delete"), "fixed.html?function={$_POST["old_function"]}", false);
+$page->setEvent("action", "up", array($page, "moveUp"), "", false);
+$page->setEvent("action", "dw", array($page, "moveDown"), "", false);
+$page->load();

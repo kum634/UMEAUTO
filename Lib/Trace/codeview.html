@@ -1,0 +1,86 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * キャッシュページ
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2017-2019 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.1.190601
+ */
+require_once("codeview.html.class");
+?>
+<?php include("inc/header.inc"); ?>
+<style>
+section div.wrap {
+	flex-direction: column;
+	overflow: auto;
+}
+h2 {
+	margin: 20px 20px 0 20px;
+}
+.view div {
+	box-shadow: 0px 0px 1px 1px #aaaaaa inset;
+	margin: 20px;
+	background: #fff;
+}
+dl {
+	display: flex;
+}
+dl dt {
+	padding: 0 10px;
+	min-width: 54px;
+	text-align: right;
+	border-right: 1px solid #ccc;
+}
+dl dd {
+	padding: 0 5px;
+	width: 100%;
+}
+dl.click dt {
+	background: #ccc;
+	border-right: 1px solid #f0f0f0;
+}
+dl.click dd {
+	background: #ccc;
+}
+</style>
+<script>
+$(function() {
+	$("dl dd, dl dt").on("click", function() {
+		if ($(this).parent().hasClass("click")) $(this).parent().removeClass("click");
+		else $(this).parent().addClass("click");
+	});
+});
+</script>
+
+<section>
+	<div class="wrap clearfix">
+		<article class="clearfix">
+			<h2><?= $page->name ?></h2>
+		</article>
+		<div class="view">
+			<div>
+				<?php
+				foreach ($page->class as $n => $line) {
+				?>
+				<dl>
+					<dt><?= ++$n ?></dt>
+					<dd><pre><code><?= htmlspecialchars($line) ?></code></pre></dd>
+				</dl>
+				<?php } ?>
+			</div>
+			<div>
+				<?php
+				foreach ($page->html as $n => $line) {
+				?>
+				<dl>
+					<dt><?= ++$n ?></dt>
+					<dd><pre><code><?= htmlspecialchars($line) ?></code></pre></dd>
+				</dl>
+				<?php } ?>
+			</div>
+		</div>
+	</div>
+</section>
+<?php include("inc/footer.inc"); ?>

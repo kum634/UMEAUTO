@@ -1,0 +1,525 @@
+<?php require_once("service.html.class"); ?>
+<!doctype html><html>
+<head>
+  <meta charset="utf-8">
+  <title>サービスメニュー</title>
+  <meta name="format-detection" content="telephone=no,noindex,nofollow,noarchive">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no">
+  <link href="<?= $page->path ?>css/common.css" rel="stylesheet" type="text/css">
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.0.13/css/all.css" integrity="sha384-DNOHZ68U8hZfKXOrtjWvjxusGo9WQnrNx2sqG0tfsghAvtVlRW3tvkXWZh58N9jp" crossorigin="anonymous">
+  <link href="js/bxslider/jquery.bxslider.css" rel="stylesheet" type="text/css">
+  <script type="text/javascript" src="js/jquery-3.3.1.min.js"></script> 
+  <script type="text/javascript" src="js/bxslider/jquery.bxslider.min.js"></script>
+  <script type="text/javascript" src="js/jquery-validation-1.11.1/dist/jquery.validate.js"></script>
+  <script type="text/javascript" src="js/jquery-validation-1.11.1/localization/messages_ja.js"></script>
+  <script type="text/javascript">
+  $(function(){
+    $('.bxslider').bxSlider({
+      auto: true,
+      pause: 4000,
+      speed: 1000,
+      pager: false,
+      controls: false,
+      captions: false,
+      randomStart: true,
+      infiniteLoop: true,
+      responsive: true
+    });
+  });
+  </script>
+</head>
+<body>
+  <div class="wrapper row1">
+    <header id="main_header">
+      <div class="view-pc container clearfix">
+        <div class="header_logo">
+          <!--<h1>淡路島で出張整備なら</h1>-->
+          <!--<p class="top-logo"><a href="index.html">ウメオート</a></p>-->
+          <p>淡路島で出張整備なら</p>
+          <h1 class="top-logo"><a href="index.html">ウメオート</a></h1>
+        </div>
+        <div class="pr_space">
+          <p class="model-muryo">整備モデル募集中!<br>
+            初めてご利用の方なら工賃無料</p>
+          <p><a class="header-seibi-form" href="request.html">整備依頼はこちら　<i class="fas fa-mouse-pointer"></i></a></p>
+        </div>
+      </div>
+      <!-- スマホ　↓　～767px-->
+      <div class="container view-st inlinestart"> <i id="open_menu" class="fas fa-bars"></i>
+        <nav id="menu"> <i id="close_menu" class="fas fa-times"></i>
+          <ul>
+            <li><a href="shop.html">会社案内 </a></li>
+            <li><a href="service.html">サービスメニュー </a></li>
+            <li><a href="process.html">出張整備の流れ </a></li>
+            <li><a href="qa.html">出張整備Q&amp;A </a></li>
+            <li><a href="sell.html">中古部品販売</a></li>
+            <li><a href="contact.html">お問い合わせ </a></li>
+          </ul>
+        </nav>
+        <!--<h1 class="catchcopy">淡路島で出張整備なら</h1>-->
+        <!--<p class="top-logo"><a href="index.html">ウメオート</a></p>-->
+        <p class="catchcopy">淡路島で出張整備なら</p>
+        <h1 class="top-logo"><a href="index.html">ウメオート</a></h1>
+      </div>
+      <!-- スマホ　↑　～767px--> 
+      <div class="loader">Loading...</div>
+    </header>
+  </div>
+  <div class="wrapper row2 view-pc container">
+    <nav id="g_navi" class="view-pc">
+      <ul class="view-pc">
+        <li><a href="shop.html">会社案内 </a></li>
+        <li><a href="service.html">サービスメニュー </a></li>
+        <li><a href="process.html">出張整備の流れ </a></li>
+        <li><a href="qa.html">出張整備Q&amp;A </a></li>
+        <li><a href="sell.html">中古部品販売</a></li>
+        <li><a href="contact.html">お問い合わせ </a></li>
+      </ul>
+    </nav>
+  </div>
+  <div class="wrapper_visual">
+    <div class="wrapper row3">
+      <div class="mainvisual">
+        <ul class="bxslider" >
+          <li><img src="images/mv1.jpg"></li>
+          <li><img src="images/mv2.jpg"></li>
+          <li><img src="images/mv3.jpg"></li>
+          <li><img src="images/mv4.jpg"></li>
+          <li><img src="images/mv5.jpg"></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="wrapper row4">
+    <main class="clearfix mb40">
+      <div class="container">
+        <nav class="wrap crumbs">
+          <ul>
+            <?php if(!strpos($_SERVER['REQUEST_URI'],"index.html")) { ?>
+            <li><a href="index.html" title="brise">ウメオート</a></li>
+            <?= $page->crumbs ?>
+            <?php } ?>
+          </ul>
+        </nav>
+        <article id="main_contents">
+<style>
+@charset "utf-8";
+/* CSS Document */
+section{
+	margin-bottom: 60px;
+}
+table td {
+  border: 1px solid #CCC;
+ 	padding: 10px 5px 10px;
+	text-align: center;
+}
+ table tr:nth-child(1) td {
+	background: #333 !important;
+	border:0px !important;
+	color: #FFF !important;
+}
+ table tr td:nth-child(1){
+	background: #D83C64;
+	color: #FFF;
+	border:0px !important;
+}
+ table {
+	font-size: 15px;
+	margin: 0 auto;
+}
+@media (min-width : 768px) {
+	#main_contents table {
+		font-size: 15px;
+  }
+}
+@media (max-width : 767px) {
+	#main_contents table {
+		font-size: 2vw;
+  }
+	section ul{
+		padding: 20px;
+	}
+}
+</style>
+<script>
+$(function(){
+  $("section h2").click(function(){
+    $(this).next("tr").slideToggle(300);
+  });
+});
+</script>
+<!---->
+          <div class="page_title">
+            <h2>サービスメニュー</h2>
+          </div>
+          <section class="mt20">
+            <ul>
+              <li>※部品代金につきましては、こちらで部品をご用意させていただいた場合に限り別途頂戴いたします。</li>
+              <li>※車種や型式、お車の状態によっては本来取り付けする部品以外に追加で別途部品が必要になることも十分ございますので、ご了承いただきますようお願い申し上げます。</li>
+              <li>※出張料は無料ですが離島のみ別途1000円頂きます。</li>
+              <li>※取り外しのみの場合交換工賃の70%OFFとさせていただきます。</li>
+              <li>※取り付けのみの場合交換工賃の30%OFFとさせていただきます。</li>
+              <li>※交換と記載されている部品を脱着する場合基本的には同じ料金です。</li>
+              <li>※記載されている金額はあくまで最低金額です。自動車やバイクの排気量によって多少違ってきますので、詳しくはお問い合わせください。</li>
+            </ul>
+          </section>
+          <section id="maitenance">
+            <table width="100%" border="0">
+              <tbody>
+                <h3>メンテナンス工賃表</h3>
+                <tr>
+                  <td width="75%">メニュー</td>
+                  <td width="25%">価格</td>
+                </tr>
+                <tr>
+                  <td>バッテリー充電（基本的に弊社のほうに持ち帰らせていただきます。）</td>
+                  <td>1000円~</td>
+                </tr>
+                <tr>
+                  <td>ウォッシャー液追加</td>
+                  <td>300円~</td>
+                </tr>
+                <tr>
+                  <td>ワイパーゴム交換</td>
+                  <td>150円~</td>
+                </tr>
+                <tr>
+                  <td>スパークプラグ交換(1本)</td>
+                  <td>350円~</td>
+                </tr>
+                <tr>
+                  <td>タイヤローテーション</td>
+                  <td>1400円~</td>
+                </tr>
+                <tr>
+                  <td>マフラー交換</td>
+                  <td>3500円~</td>
+                </tr>
+                <tr>
+                  <td>オイル交換</td>
+                  <td>1000円~</td>
+                </tr>
+                <tr>
+                  <td>オイル+オイルフィルター交換</td>
+                  <td>2000円~</td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+          <section id="replacement">
+            <table width="100%" border="0">
+              <tbody>
+                <h3>部品交換工賃表</h3>
+                <tr>
+                  <td width="75%">メニュー</td>
+                  <td width="25%">価格</td>
+                </tr>
+                <tr>
+                  <td>ドアスピーカー交換</td>
+                  <td>2800円~</td>
+                </tr>
+                <tr>
+                  <td>エアコンフィルター交換</td>
+                  <td>700円~</td>
+                </tr>
+                <tr>
+                  <td>ハンドルカバー交換</td>
+                  <td>350円~</td>
+                </tr>
+                <tr>
+                  <td>ステアリング交換</td>
+                  <td>5000円~</td>
+                </tr>
+                <tr>
+                  <td>バッテリー交換</td>
+                  <td>300円~</td>
+                </tr>
+                <tr>
+                  <td>ルームランプ球交換</td>
+                  <td>300円~</td>
+                </tr>
+                <tr>
+                  <td>テールランプ球交換</td>
+                  <td>500円~</td>
+                </tr>
+                <tr>
+                  <td>バックランプ球交換</td>
+                  <td>500円~</td>
+                </tr>
+                <tr>
+                  <td>テールランプ本体交換</td>
+                  <td>1200円~</td>
+                </tr>
+                <tr>
+                  <td>ナンバー球交換</td>
+                  <td>500円~</td>
+                </tr>
+                <tr>
+                  <td>ポジション球交換</td>
+                  <td>500円~</td>
+                </tr>
+                <tr>
+                  <td>ヘッドライトバルブ交換（ハロゲン）</td>
+                  <td>500円~</td>
+                </tr>
+                <tr>
+                  <td>フォグランプ（ハロゲン）</td>
+                  <td>500円~</td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+          <section id="option">
+            <table width="100%" border="0">
+              <tbody>
+                <h3>オプション品取付工賃表</h3>
+                <tr>
+                  <td width="75%">メニュー</td>
+                  <td width="25%">価格</td>
+                </tr>
+                <tr>
+                  <td>ドライブレコーダー取り付け（1カメラ）</td>
+                  <td>3800円~</td>
+                </tr>
+                <tr>
+                  <td>カーナビゲーション取り付け</td>
+                  <td>9500円~</td>
+                </tr>
+                <tr>
+                  <td>カーナビゲーション取り付け（ポータブル）</td>
+                  <td>2000円~</td>
+                </tr>
+                <tr>
+                  <td>カーナビゲーション交換（純正→社外品等）</td>
+                  <td>13570円~</td>
+                </tr>
+                <tr>
+                  <td>サブウーファー取り付け</td>
+                  <td>3000円~</td>
+                </tr>
+                <tr>
+                  <td>レーダー探知機取り付け</td>
+                  <td>2100円~</td>
+                </tr>
+                <tr>
+                  <td>オーディオ取り付け</td>
+                  <td>3400円~</td>
+                </tr>
+                <tr>
+                  <td>電源取り出し</td>
+                  <td>2800円~</td>
+                </tr>
+                <tr>
+                  <td>ETC取り付け</td>
+                  <td>2800円~</td>
+                </tr>
+                <tr>
+                  <td>ETCセットアップ手数料(登録料別)</td>
+                  <td>1500円~</td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+          <section id="motorcycle" class="mb30">
+            <table width="100%" border="0">
+              <tbody>
+                <h3>二輪車整備工賃表（50cc~）</h3>
+                <tr>
+                  <td width="75%">メニュー</td>
+                  <td width="25%">価格</td>
+                </tr>
+                <tr>
+                  <td>ドライブレコーダー取り付け（1カメラ）</td>
+                  <td>3500円~</td>
+                </tr>
+                <tr>
+                  <td>ドライブレコーダー取り付け（２カメラ）</td>
+                  <td>6000円~</td>
+                </tr>
+                <tr>
+                  <td>レーダー探知機取り付け</td>
+                  <td>3500円~</td>
+                </tr>
+                <tr>
+                  <td>電源取り出し</td>
+                  <td>3000円~</td>
+                </tr>
+                <tr>
+                  <td>シガー電源取り付け</td>
+                  <td>1000円~</td>
+                </tr>
+                <tr>
+                  <td>ETC取り付け（バッテリーレス車取り付け不可）</td>
+                  <td>6000円~</td>
+                </tr>
+                <tr>
+                  <td>ETC一体型取り付け（バッテリーレス車取り付け不可）</td>
+                  <td>3500円~</td>
+                </tr>
+                <tr>
+                  <td>ETCセットアップ手数料(登録料別)</td>
+                  <td>1500円~</td>
+                </tr>
+                <tr>
+                  <td>バッテリー充電（基本的に弊社のほうに持ち帰らせていただきます。）</td>
+                  <td>1000円~</td>
+                </tr>
+                <tr>
+                  <td>バッテリー交換</td>
+                  <td>1000円~</td>
+                </tr>
+                <tr>
+                  <td>メーター球交換</td>
+                  <td>2000円~</td>
+                </tr>
+                <tr>
+                  <td>ウインカー本体交換（1個）</td>
+                  <td>950円~</td>
+                </tr>
+                <tr>
+                  <td>ウインカーレンズ等その他のパーツ交換（1個）</td>
+                  <td>950円~</td>
+                </tr>
+                <tr>
+                  <td>ウインカー球交換（1個）</td>
+                  <td>300円~</td>
+                </tr>
+                <tr>
+                  <td>テールランプ交換（1個）</td>
+                  <td>3500円~</td>
+                </tr>
+                <tr>
+                  <td>テールランプレンズ交換（1個）</td>
+                  <td>300円~</td>
+                </tr>
+                <tr>
+                  <td>テールランプ球交換</td>
+                  <td>300円~</td>
+                </tr>
+                <tr>
+                  <td>ナンバー球交換</td>
+                  <td>300円~</td>
+                </tr>
+                <tr>
+                  <td>フロントフェンダー交換</td>
+                  <td>1600円~</td>
+                </tr>
+                <tr>
+                  <td>フュ―エルタンク脱着</td>
+                  <td>1000円~</td>
+                </tr>
+                <tr>
+                  <td>シートカウル交換</td>
+                  <td>1600円~</td>
+                </tr>
+                <tr>
+                  <td>タンデムバー取り付け</td>
+                  <td>1600円~</td>
+                </tr>
+                <tr>
+                  <td>サイドカバー交換</td>
+                  <td>1000円~</td>
+                </tr>
+                <tr>
+                  <td>ミラー交換</td>
+                  <td>300円~</td>
+                </tr>
+                <tr>
+                  <td>ハンドル交換</td>
+                  <td>2400円~</td>
+                </tr>
+                <tr>
+                  <td>ハンドルグリップ交換</td>
+                  <td>1000円~</td>
+                </tr>
+                <tr>
+                  <td>その他カウル交換</td>
+                  <td>300円~</td>
+                </tr>
+                <tr>
+                  <td>エアエレメント交換</td>
+                  <td>1050円~</td>
+                </tr>
+                <tr>
+                  <td>スパークプラグ交換(1本)</td>
+                  <td>500円~</td>
+                </tr>
+                <tr>
+                  <td>オイル交換</td>
+                  <td>1000円~</td>
+                </tr>
+                <tr>
+                  <td>オイル+オイルフィルター交換</td>
+                  <td>2000円~</td>
+                </tr>
+                <tr>
+                  <td>キャブレター脱着（~50cc）</td>
+                  <td>900円~</td>
+                </tr>
+                <tr>
+                  <td>キャブレター脱着（51cc~・シングルキャブ）</td>
+                  <td>1050円~</td>
+                </tr>
+                <tr>
+                  <td>キャブレター脱着（51cc~・シングルキャブ以外）</td>
+                  <td>3800円~</td>
+                </tr>
+                <tr>
+                  <td>キャブレターOH（~50cc）</td>
+                  <td>5000円~</td>
+                </tr>
+                <tr>
+                  <td>キャブレターOH（51cc~・シングルキャブ）</td>
+                  <td>6000円~</td>
+                </tr>
+                <tr>
+                  <td>キャブレターOH（51cc~・シングルキャブ以外）</td>
+                  <td>23000円~</td>
+                </tr>
+                <tr>
+                  <td>マフラー脱着（1気筒）</td>
+                  <td>2400円~</td>
+                </tr>
+                <tr>
+                  <td>マフラー脱着（2気筒）</td>
+                  <td>5800円~</td>
+                </tr>
+                <tr>
+                  <td>マフラー脱着（センター出し）</td>
+                  <td>12000円~</td>
+                </tr>
+                <tr>
+                  <td>マフラー脱着（V型）</td>
+                  <td>12000円~</td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+<!-- -->
+        </article>
+      </div>
+    </main>
+  </div>
+  <div class="wrapper row5">
+    <nav id="menu_f" class="fixedform view-st"> <i id="close_menu_f" class="fas fa-times"></i>
+      <h1>整備モデル募集中!<br>
+        初めてご利用の方なら工賃無料</h1>
+      <p><a class="formbtn_fixedform" href="request.html">整備依頼はこちら　<i class="fas fa-mouse-pointer"></i></a></p>
+    </nav>
+    <footer id="main_footer">
+      <ul>
+        <li><a href="shop.html">会社案内 </a></li>
+        <li><a href="service.html">サービスメニュー </a></li>
+        <li><a href="process.html">出張整備の流れ </a></li>
+        <li><a href="qa.html">出張整備Q&amp;A </a></li>
+        <li><a href="sell.html">中古部品販売</a></li>
+        <li><a href="contact.html">お問い合わせ </a></li>
+        <li><a href="sitemap.html">サイトマップ</a></li>
+      </ul>
+      <p> Copyright (C)2020ウメオートAll Rights Reserved. </p>
+    </footer>
+  </div>
+  <script type="text/javascript" src="<?= $page->path ?>js/burger_menu.js"></script>
+  <script type="text/javascript" src="<?= $page->path ?>js/advertising.js"></script>
+</body>
+</html>

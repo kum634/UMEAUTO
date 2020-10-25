@@ -1,0 +1,271 @@
+<?php 
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * アイテムページ
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2017-2019 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.191220
+ */
+require_once("image.html.class");
+?>
+<?php include("inc/header.inc"); ?>
+<style>
+div.imagecontent{
+	display: flex;
+	flex-direction: column;
+}
+#modal {
+	display: block;
+	padding: 0;
+	width: 100%;
+	height: auto;
+	min-height: initial;
+	border: none;
+	box-shadow: none;
+	position: relative;
+	left: 0;
+	top: 0;
+	transform: none;
+}
+#modal .docbottom {
+	position: relative;
+	left: 0;
+	top: 0;
+}
+.photo {
+	margin: 10px 0 20px 0;
+	padding: 10px;
+	height: auto;
+	min-height: 360px;
+	border: 1px solid #ccc;
+	border-radius: 4px;
+}
+section form { background: #dedede; }
+section form dl dt { min-width: 160px; }
+section form dl dd { display: flex; flex-direction: column; }
+section form dl dd div { padding-bottom: 10px; }
+section form dl dd label { width: 100px; text-align: right; }
+section form dl dd span { float: left; }
+input[type="range"], input[type="checkbox"], select { margin-left: 20px; }
+input[type="text"] { width: 100px; margin-left: 20px; text-align: center; float: left; }
+</style>
+<section>
+	<div class="wrap clearfix">
+		<div id="menu">
+			<?php include("inc/menu.inc"); ?>
+		</div><!-- #menu -->
+		<script>
+			var isCancel = false;
+			var isChange = false;
+			// note: フォルダー内の画像をロード
+			function loadFolder() {
+				$.post(
+					location.href,
+					{ "action": "loadFolder", "folder": "<?= ($_GET["folder"]) ? $_GET["folder"] : "common" ?>" },
+					function(res) {
+						$("#ajax_form").html(res);
+						$("#modal img.load").hide();
+						$("#modal .docbottom .left").html("ドラッグ＆ドロップでアップロードを開始します。");
+					},
+					"html");
+			}
+			// note: アップロード
+			function uploadFile(form) {
+				form.append("action", "upload");
+				form.append("mag", $("input[name=mag]").val());
+				form.append("width", $("input[name=width]").val());
+				form.append("height", $("input[name=height]").val());
+				form.append("backgroundcolor", $("input[name=backgroundcolor]").val());
+				form.append("start_x", $("input[name=start_x]").val());
+				form.append("start_y", $("input[name=start_y]").val());
+				form.append("end_x", $("input[name=end_x]").val());
+				form.append("end_y", $("input[name=end_y]").val());
+				form.append("processing", $("input[name='processing']:checked").val());
+				form.append("effect", $("select[name='effect']").val());
+				form.append("BRIGHTNESS", $("input[name='BRIGHTNESS']").val());
+				form.append("CONTRAST", $("input[name='CONTRAST']").val());
+				form.append("SMOOTH", $("input[name='SMOOTH']").val());
+				form.append("COLORIZE", $("input[name='COLORIZE']").val());
+				form.append("PIXELATE", $("input[name='PIXELATE']").val());
+				if ($("input[name='PIXELATE2']").prop("checked")) {
+					form.append("PIXELATE2", "1");
+				}
+				form.append("folder", "<?= ($_GET["folder"]) ? $_GET["folder"] : "common" ?>");
+	
+				$.ajax(location.href, {
+					async: true,
+					method: "POST",
+					contentType: false,
+					processData: false,
+					data:form,
+					dataType: "html",
+					error: function(e) {
+						console.log(e);
+					},
+					success: function(res) {
+						if (isCancel) return;
+						$("#ajax_form").html(res);
+						$("#modal img.load").hide();
+						$("#modal .docbottom .left").html("アップロードを完了しました。");
+					}
+				});
+			}
+			// note: ファイル削除
+			function removeFile(name) {
+				$.post(
+					location.href,
+					{ "action": "unlink", "file_name": name, "folder": "<?= $_GET["folder"] ?>" },
+					function(res) {
+						$("#ajax_form").html(res);
+						$("#modal img.load").hide();
+						$("#modal .docbottom .left").html("ドラッグ＆ドロップでアップロードを開始します。");
+					},
+					"html");
+			}
+
+			$(function() {
+				// note: ドラッグ＆ドロップ
+				$("#ajax_form").on("dragenter", function(e) {
+					e.stopPropagation();
+					e.preventDefault();
+					$(this).css("border", "1px solid rgba(61, 196, 150, 1)");
+				});
+				$("#ajax_form").on("dragover", function(e) {
+					e.stopPropagation();
+					e.preventDefault();
+				});
+				$("#ajax_form").on("drop", function(e) {
+					$(this).css("border", "none");
+					e.preventDefault();
+					isCancel = false;
+
+					var files = e.originalEvent.dataTransfer.files;
+					for (var n = 0; n < files.length; n++) {
+						if (isCancel) break;
+
+						var form = new FormData();
+						form.append("file", files[n]);
+						$("#modal .docbottom .left").html("Uploading... " + files[n].name + " " + files[n].size);
+						$("#modal img.load").show();
+						uploadFile(form);
+					}
+				});
+				// note: Xボタンクリック
+				$("#ajax_form").on("click", "button", function(e) {
+					var name = $(this).parent().data("name");
+					if (!confirm(name + "を削除しますか？")) return;
+
+					$("#modal img.load").show();
+					removeFile(name);
+				});
+				// note: 画像の効果選択
+				$("select[name='effect']").on("change", function() {
+					$(".effect-prm").hide();
+
+					if ($(this).val() == "IMG_FILTER_CONTRAST") $("#PRM_CONTRAST").show();
+					else if($(this).val() == "IMG_FILTER_COLORIZE") $("#PRM_COLOR").show();
+					else if($(this).val() == "IMG_FILTER_PIXELATE") $("#PRM_PIXELATE").show();
+					else if($(this).val() == "IMG_FILTER_BRIGHTNESS") $("#PRM_BRIGHTNESS").show();
+					else if($(this).val() == "IMG_FILTER_SMOOTH") $("#PRM_SMOOTH").show();
+				});
+
+				// note: フォルダー内の画像をロード
+				loadFolder();
+				// note: 画像の効果オプション表示を初期化
+				$(".effect-prm").hide();
+			});
+		</script>
+		<div class="content">
+			<article >
+				<?= ($page->errors["message"]) ? "<p>{$page->errors["message"]}</p>" : "" ?>
+			</article>
+			<article class="clearfix">
+				<h2>image/<?= $_GET["folder"] ?>/</h2>
+			</article>
+			<div class="imagecontent">
+				<div id="modal" class="modal">
+					<div class="clearfix docbottom">
+						<div class="left"></div>
+					</div>
+					<img src="image/common/load.gif" class="load">
+					<div id="ajax_form" class="photo"></div>
+				</div><!-- #modal -->
+				<form>
+					<div class="mag">
+						<dl>
+							<dt>
+								<label><input type="radio" id="processing" name="processing" value="mag" checked>Zoom</label>
+							</dt>
+							<dd>
+								<div><label>Zoom lebel</label><input type="text" name="mag" value = "100">%</div>
+							</dd>
+						</dl>
+					</div>
+					<div class="resize">
+						<dl>
+							<dt>
+								<label><input type="radio" id="processing" name="processing" value="resize">Resize</label>
+							</dt>
+							<dd>
+								<div><label>Width</label><input type="text" name="width"><span>px</span><label>Height</label><input type="text" name="height"><span>px</span></div>
+								<div><label>Background</label><input type="text" name="backgroundcolor"></div>
+							</dd>
+						</dl>
+					</div>
+					<div class="trimming">
+						<dl>
+							<dt>
+								<label><input type="radio" id="processing" name="processing" value="trimming">Trimming</label>
+							</dt>	
+							<dd>
+								<div><label>Location X</label><input type="text" name="start_x" id="point"><span>px</span><label>Location Y</label><input type="text" name="start_y" id="point"><span>px</span></div>
+								<div><label>Width</label><input type="text" name="end_x" id="point"><span>px</span><label>Height</label><input type="text" name="end_y" id="point"><span>px</span></div>
+							</dd>
+						</dl>
+					</div>
+					<div class="image_effect">
+						<dl>
+							<dt>Image filter</dt>	
+							<dd>
+								<div>
+									<label>Filter type</label>
+									<select name="effect" size="1">
+										<option value=""></option>
+										<?= Lib\Tag::getOption(Lib\Lib::imageFilter(), "") ?>
+									</select>
+								</div>
+								<div id="PRM_BRIGHTNESS" class="effect-prm">
+									<label>Range</label>
+									<input type="range" name = "BRIGHTNESS" value="0" min="-255" max="255" step="1" oninput="document.getElementById('output2').value=this.value">
+									<output name ="BRIGHTNESS" id="output2">0</output>
+								</div>
+								<div id="PRM_CONTRAST" class="effect-prm">
+									<label>Range</label>
+									<input type="range" name = "CONTRAST" value="0" min="0" max="255" step="1" oninput="document.getElementById('output1').value=this.value">
+									<output name="CONTRAST" id="output1">0</output>
+								</div>
+								<div id="PRM_SMOOTH" class="effect-prm">
+									<label>Range</label>
+									<input type="range" name = "SMOOTH" value="0" min="-8" max="8" step="1" oninput="document.getElementById('output3').value=this.value">
+									<output name="SMOOTH" id="output3">0</output>
+								</div>
+								<div id="PRM_COLOR" class="effect-prm">
+									<label>rgba</label><input type="text" name="COLORIZE">
+								</div>
+								<div id="PRM_PIXELATE" class="effect-prm">
+									<label>Range</label>
+									<input type="range" name = "PIXELATE" id= "PIXELATE" value="0" min="-8" max="8" step="1" oninput="document.getElementById('output4').value=this.value">
+									<output name="PIXELATE" id="output4">0</output>
+									<input type="checkbox" name="PIXELATE2" value = "1">高精細モザイク
+								</div>
+							</dd>
+						</dl>
+					</div>
+				</form>
+			</div><!--#imagecontent-->
+		</div><!-- #content -->
+	</div><!-- #wrap -->
+</section>
+<?php include("inc/footer.inc"); ?>

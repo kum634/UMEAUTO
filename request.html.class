@@ -1,0 +1,193 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ *
+ * @package    basepack
+ * @copyright  Copyright (c) 2019
+ * @version    1.0.20201014
+ * @framework  Lib Framework v3.1.180515
+ */
+require_once("{$_SERVER["DOCUMENT_ROOT"]}/Lib/Conf.inc");
+require_once("Common/Page.class");
+require_once("Common/DAC.class");
+require_once("Common/Filter.class");
+require_once("Common/Lib.class");
+require_once("Common/MailClass.class");
+require_once("Common/Rule.class");
+require_once("Common/Tag.class");
+
+use Lib\{Page,DAC,Filter,Lib,MailClass,Rule,Tag};
+
+class Page_Request extends Page {
+	public $form;
+	public $select;
+	public $file_photo;
+	public $savePath;
+	public $tempPath;
+	public $crumbs;
+
+	/**
+	 * ページロード時に実行します。
+	 */
+	public function default() {
+		$this->crumbs = "<li>整備依頼申し込みフォーム</li>\n";
+		$this->form = $_SESSION[DOMAIN]["request_data"];
+		if ($this->form["file_photo"]) {
+			$html = "<ul style=\"display: block\">";
+			foreach ($this->form["file_photo"] as $photo) {
+				$path = "{$this->node}images/upfile_tmp/";
+				$name = str_replace($path, '', $photo);
+				$html.= " <li data-name=\"{$name}\">";
+				$html.= "	 <label>";
+				$html.= "		 <i class=\"fas fa-times\"></i>";
+				$html.= "	 </label>";
+				$html.= "	 <input type=\"hidden\" name=\"file_photo[]\" value=\"{$photo}\">";
+				$html.= "	 <img src=\"{$photo}\">";	
+				$html.= " </li>";
+			 
+			}
+			$html.= "</ul>"; 
+		}
+		$this->file_photo = $html;
+		
+		$this->select["age"] =	array();
+		for ($a = 2; $a < 9; $a++) {
+			$range = $a."0";
+			$range = (int)$range;
+			if ($range == 20) { 
+				$range_result = $range."歳未満";
+				$this->select["age"] += [$range_result => $range_result];
+			}
+			if ($range == 80) { 
+				$range_result = $range."歳以上";
+				$this->select["age"] += [$range_result => $range_result];
+			} else {
+				$range_result = $range."~".($range + 4)."歳";
+				$this->select["age"] += [$range_result => $range_result];
+				$range_result = ($range + 5)."~".($range + 9)."歳";
+				$this->select["age"] += [$range_result => $range_result];
+			}
+		}
+		
+		$this->select["city"] = array( 
+			"淡路市" => "淡路市" , 
+			"洲本市" => "洲本市" , 
+			"南あわじ市" => "南あわじ市"
+		);
+		
+		$this->select["manufacturered_year"] =	array();
+		for ($t = 0; $t < 40; $t++) {
+			$year = date("Y") - $t;
+			$this->select["manufacturered_year"] += [$year => $year];
+		}
+		
+		$this->select["expiration_year"] =	array();
+		for ($t = 0; $t < 4; $t++) {
+			$year = date("Y") + $t;
+			$this->select["expiration_year"] += [$year => $year];
+		}
+		
+		$this->select["month"] =	array();
+		for ($t = 1; $t <= 12; $t++) {
+			$this->select["month"] += [$t => $t];
+		}
+		
+		$this->select["day"] =	array();
+		for ($t = 1; $t <= 31; $t++) {
+			$this->select["day"] += [$t => $t];
+		}
+		
+		$this->select["reservation_date"] = array();
+		for ($t = 3; $t <= 17; $t++) {
+			$year = date('Y', strtotime('+'.$t.' day'));
+			$month = date('m', strtotime('+'.$t.' day'));
+			$day = date('d', strtotime('+'.$t.' day'));
+			$date = $year."-".$month."-".$day;
+			$datetime = new DateTime($date);
+			$week = array("日", "月", "火", "水", "木", "金", "土");
+			$w = (int)$datetime->format('w');
+			
+			$dac = new DAC(Lib::connection(), "mysql", true);
+			$dac->setColumn("reservation_date");
+			$dac->setOption("reservation_date = '{$date}'");
+			$view = "reservation";
+			$dac->selectRows($view, $rows);
+		
+			if ($week[$w] != "火" && $week[$w] != "水" && !count($rows) == 3) {
+				$this->select["reservation_date"] += [$date."({$week[$w]})" => $date."({$week[$w]})"];
+			}
+		}
+		
+		$this->select["request_purpose"] =	array( 
+			"故障、不具合" => "故障、不具合" ,
+			"パーツの取り付け" => "パーツの取り付け" , 
+			"パーツの取り外し" => "パーツの取り外し" , 
+			"その他の依頼" => "その他の依頼" 
+		);
+	}
+	/**
+	 * actionがconfirmのときに実行します。
+	 */
+	public function confirm() {
+		$_SESSION[DOMAIN]["request_data"] = $_POST;
+		
+		$this->response("OK", true);
+	}
+	/**
+	 * actionがuploadのときに実行します。
+	 */
+	public function upload() {
+		$path = "{$this->node}images/upfile_tmp/";
+		$exts = ["jpg", "jpeg", "png", "gif"];
+		$this->saveFile("file", $path, $exts, $name) or $this->response($this->errors["upload"], false);
+		// if (file_exists ($name)) {
+		//	 $res["name"] = "";
+		//	 $this->response($res, true);
+		//	 return;
+		// }
+		$res["photo"] = $name;
+		$res["name"] = str_replace($path, '', $name);
+		$this->response($res, true);
+	}
+	/**
+	 * actionがremoveのときに実行します。
+	 */
+	public function remove() {
+		if (!$_POST["file_name"]) die("FAILURE:必要な情報が送信されませんでした。");
+		$res["name"] = $_POST["file_name"];
+		$path = "{$this->node}images/upfile_tmp/{$_POST["file_name"]}";
+		if ($_SESSION[DOMAIN]["request_data"]["file_photo"]) {
+			for($i = 0; $i < count($_SESSION[DOMAIN]["request_data"]["file_photo"]); $i++){
+				if ($_SESSION[DOMAIN]["request_data"]["file_photo"][$i] == $path) {
+					unset($_SESSION[DOMAIN]["request_data"]["file_photo"][$i]);			
+				}
+			}
+		}
+		unlink($path) or die("FAILURE:ファイルの削除に失敗しました。");
+		$this->response($res, true);
+	}
+
+}
+/**
+ * フォーム要素とルールの連想配列
+ * 指定要素にフィルタールールと必須チェック及びセッション利用の有無を指定する
+ */
+
+/**
+ * ページインスタンス生成
+ * 実行パス、ルール連想配列及びページセッション名を指定する
+ */
+$page = new Page_Request(__DIR__, null, null, true);
+/**
+ * イベント発生時のコールバック関数、移動先及びセッション保存の有無をセットしload()を実行する
+ */
+$page->setEvent("default", null, array($page, "default"), "", true);
+$page->setEvent("action", "confirm", array($page, "confirm"), "", true);
+$page->setEvent("action", "upload", array($page, "upload"), "", true);
+$page->setEvent("action", "remove", array($page, "remove"), "", true);
+
+/**
+ * クロスページポストの有無を設定する
+ */
+$page->canCrossPagePostBack = false;
+$page->load();

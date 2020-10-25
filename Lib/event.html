@@ -1,0 +1,284 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * ユーザーページ
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2020 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.200129
+ */
+require_once("event.html.class"); 
+?>
+<?php include("inc/header.inc"); ?>
+
+<style>
+section .content article #btn_lock:hover {
+	opacity: initial;
+	transition: initial;
+}
+section form dl dt { width: 160px; }
+table tr:first-child {
+	border: none;
+}
+.event table td:nth-of-type(1) { width: 160px; }
+.event table td:nth-of-type(2) { width: 160px; }
+.event table td:nth-of-type(3) { width: auto; min-width: 120px; }
+.event table td:nth-of-type(4) { width: 100px; }
+.event table td:nth-of-type(5) { width: 156px; min-width: 156px; padding: 0 2px; }
+.event table td.edit a { float: left; margin-left: 10px; }
+
+.func table td:nth-of-type(1) { width: 160px; }
+.func table td:nth-of-type(2) { width: auto; min-width: 120px; }
+.func table td:nth-of-type(3) { width: 100px; }
+.func table td:nth-of-type(4) { width: 156px; min-width: 156px; padding: 0 2px; }
+.func table td.edit a { float: left; margin-left: 10px; }
+
+.rule table td:nth-of-type(1) { width: 160px; }
+.rule table td:nth-of-type(8) { width: 78px; min-width: 78px; padding: 0 2px 0 10px; }
+
+section .content .add a { width: 70px; }
+section form dl dd.dir label { line-height: 2.0em; }
+section form h3 { margin-bottom: 20px; }
+input[type="text"] { width: 80%; }
+</style>
+<section>
+	<div class="wrap clearfix">
+		<div id="menu">
+			<?php include("inc/menu.inc"); ?>
+		</div>
+		<script>
+		var isChange = false;
+		// note: ロック状態を確認する
+		function isLocked() {
+				var user = "<?= $_SESSION[DOMAIN]["Lib.user"]["user_id"] ?>";
+				if ($("#is_locked").val() == "1" && $("#user_id").val() != user) {
+					alert("このテンプレートは他のユーザーによってロックされています。");
+					return false;
+				}
+				return true;
+		}
+		// note: コピー先ページリストを表示する
+		function loadPages() {
+			$.post(
+				location.href,
+				{ "action" : "pages" },
+				function(res) {
+					$("#ajax_pages").html(res);
+					$("#modal_pages").show("fast");
+				},
+				"html");
+		}
+		$(function() {
+			// note: 複製ボタンクリック
+			$(".copy").click( function() {
+				$("#callback").val($(this).data("callback"));
+				loadPages();
+			});
+			// note: ページリスト取消ボタンクリック
+			$("#modal_pages .cancel").click(function() {
+				$("#modal_pages").hide("fast");
+			});
+			// note: ページリストOKボタンクリック
+			$("#modal_pages .accept").click(function() {
+				var pages = [];
+				$("#modal_pages table input").each(function() {
+					if ($(this).prop("checked")) pages.push($(this).data("id"));
+				});
+				$("#pages").val(pages.join(','));
+				$("#action").val("copy");
+				$("form").submit();
+			});
+			// note: エラー表示にクラスを追加する
+			$("form dl dd span").parent().parent().addClass("error");
+			// note: メニューのページリストプルダウンをクリックする
+			$("#menu .caption:eq(2) label").click();
+			// note: フォーム要素の変更イベント
+			$("form").on("change", function() {
+				isChange = true;
+			});
+			// note: 戻るボタンクリックイベント
+			$("#btn_back").on("click", function() {
+				if (isChange && !confirm("保存せずに戻りますか？")) return false;
+				$("#action").val("back");
+			});
+			// note: 保存ボタンクリックイベント
+			$("#btn_save").on("click", function() {
+				if (!isLocked()) return false;
+				$("#action").val("save");
+			});
+			$("section div.content a#event").on("mouseenter", function() {
+				$(this).attr("href", $(this).attr("href").split('#')[0] + "#" + $("#menu").scrollTop());
+			});
+			$("section div.content div.add a, section div.content td.edit a:first-child").on("mouseenter", function() {
+				$(this).attr("href", $(this).attr("href").split('#')[0] + "#" + $("#menu").scrollTop());
+			});
+		});
+		</script>
+		<div class="content">
+			<article>
+				<?= ($page->errors["form"]) ? "<p>{$page->errors["form"]}</p>" : "" ?>
+			</article>
+			<article>
+				<h2><?= $page->values["page_name"]?>　Events</h2>
+				<a id="event" href="page.html?ROWID=<?= $page->values["ROWID"] ?>">HTML</a>
+				<button id="btn_lock" class="<?= ($page->values["is_locked"]) ? "lock_on" : "lock_off" ?>" disabled><?= ($page->values["is_locked"]) ? "Unlock" : "Lock" ?></button>
+			</article>
+			<form method="post">
+				<input type="hidden", name="tm_create" value="<?= $page->values["tm_create"] ?>">
+				<input type="hidden", name="tm_update" value="<?= $page->values["tm_update"] ?>">
+				<input type="hidden", name="user_name" value="<?= $page->values["user_name"] ?>">
+				<div class="clearfix">
+					<dl>
+						<dt>Use class</dt>
+						<dd class="dir group">
+							<?= Lib\Tag::getCheckBox("dir", Lib\Lib::use(), is_array($page->values["dir"]) ? $page->values["dir"] : explode(",", $page->values["dir"]), true) ?>
+						</dd>
+					</dl>
+					<dl>
+						<dt>Pag session name</dt>
+						<dd>
+							<input type="text" name="page_session" value="<?= $page->values["page_session"] ?>">
+						</dd>
+					</dl>
+					<dl>
+						<dt>Properties</dt>
+						<dd>
+							<input type="text" name="variable" value="<?= $page->values["variable"] ?>">
+							<p>Enter member variables separated by commas.</p>
+						</dd>
+					</dl>
+					<dl>
+						<dt>Cross page post</dt>
+						<dd>
+							<?= Lib\Tag::getRadio("cross_page", array("1" => "Enable", "0" => "Disable"), $page->values["cross_page"]) ?>
+						</dd>
+					</dl>
+					<dl>
+						<dt>File upload</dt>
+						<dd>
+							<?= Lib\Tag::getRadio("post_files", array("1" => "Enable", "0" => "Disable"), $page->values["post_files"]) ?>
+						</dd>
+					</dl>
+				</div>
+				<div class="list event">
+					<h3>Events</h3>
+					<div class="add">
+						<a href="event_edit.html?page=<?= $page->values["ROWID"] ?>&event=1">Add</a>
+					</div>
+					<table>
+						<thead>
+							<tr>	
+								<td>Name</td>
+								<td>Value</td>
+								<td>Move to</td>
+								<td>State</td>
+								<td></td>
+							</tr>
+						</thead>
+						<tbody>
+							<?php foreach($page->events as $event) { ?>
+							<tr>
+								<td><?= ($event["name"] == "default") ? "Loading" : $event["name"] ?></td>
+								<td><?= ($event["name"] == "default") ? "default" : $event["value"] ?></td>
+								<td><?= $event["move_to"] ?></td>
+								<td><?= ($event["visible"]) ? "Enable" : "Disable" ?></td>
+								<td class="edit">
+									<a href="event_edit.html?ROWID=<?= $event["ROWID"] ?>&page=<?= $page->values["ROWID"] ?>&event=1">Edit</a>
+									<a class="copy" href="javascript:void(0)" data-callback="<?= $event["callback"] ?>">Copy</a>
+								</td>
+							</tr>
+							<?php } ?>
+						</tbody>
+					</table>
+				</div>
+				<div class="list func">
+					<h3>Method</h3>
+					<div class="add">
+						<a href="event_edit.html?page=<?= $page->values["ROWID"] ?>&event=0">Add</a>
+					</div>
+					<table>
+						<thead>
+							<tr>
+								<td>Function</td>
+								<td>Comment</td>
+								<td>State</td>
+								<td></td>
+							</tr>
+						</thead>
+						<tbody>
+							<?php foreach($page->funcs as $func) { ?>
+							<tr>
+								<td><?= $func["callback"] ?></td>
+								<td><?= $func["comment"] ?></td>
+								<td><?= ($func["visible"]) ? "Enable" : "Disable" ?></td>
+								<td class="edit">
+									<a href="event_edit.html?ROWID=<?= $func["ROWID"] ?>&page=<?= $page->values["ROWID"] ?>&event=0">Edit</a>
+									<a class="copy" href="javascript:void(0)" data-callback="<?= $func["callback"] ?>">Copy</a>
+								</td>
+							</tr>
+							<?php } ?>
+						</tbody>
+					</table>
+				</div>
+				<div class="list rule">
+					<h3>Rules</h3>
+					<div class="add">
+						<a href="rule_edit.html?page=<?= $page->values["ROWID"] ?>">Add</a>
+					</div>
+					<table>
+						<thead>
+							<tr>
+								<td>Name</td>
+								<td>Length</td>
+								<td>Filter</td>
+								<td>Convert</td>
+								<td>Default</td>
+								<td>Required</td>
+								<td>Save session</td>
+								<td></td>
+							</tr>
+						</thead>
+						<tbody>
+							<?php foreach ($page->rules as $rule) { ?>
+							<tr>
+								<td><?= $rule["name"] ?></td>
+								<td><?= $rule["len"] ?></td>
+								<td><?= $page->getPattern($rule) ?></td>
+								<td><?= $page->getKana($rule) ?></td>
+								<td><?= $rule["def"] ?></td>
+								<td><?= ($rule["req"] == 1) ? "Required" : "" ?></td>
+								<td><?= ($rule["use_session"] == 1) ? "Save" : "" ?></td>
+								<td class="edit"><a href="rule_edit.html?ROWID=<?= $rule["ROWID"] ?>&page=<?= $page->values["ROWID"] ?>">Edit</td>
+							</tr>
+							<?php } ?>
+						</tbody>
+					</table>
+				</div>
+				<div class="clearfix">
+					<div class="left">
+						<button id="btn_back">Back</button>
+						<button id="btn_save">Save</button>
+					</div>
+				</div>
+				<input type="hidden" id="action" name="action">
+				<input type="hidden" name="ROWID" value="<?= $page->values["ROWID"] ?>">
+				<input type="hidden" name="page_name" value="<?= $page->values["page_name"] ?>">
+				<input type="hidden" id="user_id" name="user_id" value="<?= $page->values["user_id"] ?>">
+				<input type="hidden" id="is_locked" name="is_locked" value="<?= $page->values["is_locked"] ?>">
+				<input type="hidden" id="pages" name="pages">
+				<input type="hidden" id="callback" name="callback">
+			</form>
+		</div><!-- .content -->
+
+		<div id="modal_pages" class="modal">
+			<div id="ajax_pages"></div>
+			<div class="clearfix">
+				<div class="left"><button class="cancel">Cancel</button></div>
+				<div class="right"><button class="accept">OK</button></div>
+			</div>
+		</div><!-- #modal_pages -->
+
+	</div><!-- .wrap clearfix -->
+</section>
+<?php include("inc/footer.inc"); ?>

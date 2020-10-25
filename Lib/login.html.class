@@ -1,0 +1,97 @@
+<?php 
+/**
+ * Login page class
+ *
+ : @charset    UTF-8N
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2019 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.191226
+ */
+namespace Lib;
+
+require_once("Conf.inc");
+require_once("Common/Page.class");
+require_once("Common/DAC.class");
+
+class Page_Login extends Page {
+	/**
+	 * IDとパスワードにマッチするユーザーを獲得しインディックスページへ移動する
+	 */
+	public function login() {
+		if (!$_POST["user_id"] || !$_POST["password"]) return false;
+		
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setColumn("user_id");
+		$dac->setColumn("user_name");
+		$dac->setColumn("is_developer");
+		$dac->setOption("user_id=[0] And password=[1]", $_POST["user_id"], $_POST["password"]);
+		if (!$dac->selectRows("t_user", $rows, 1)) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = $dac->message;
+			return false;
+		}
+		if (!$rows[0]){
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = "ユーザーIDとパスワードが一致しません。";
+			return false;
+		} else {
+			$_SESSION[DOMAIN]["Lib.user"] = $rows[0];
+			$_SESSION[DOMAIN]["Lib.user"]["time"] = date("m/d H:i:s");
+			unlink("{$this->path}lib-install.php");
+			unlink("{$this->path}lib-update.php");
+			unlink("{$this->path}libframework.zip");
+			unset($_SESSION[DOMAIN][$this->sessionKey]);
+			return true;
+		}
+	}
+	/**
+	 * ロードイベント
+	 */
+	public function default() {
+		// note: ドメインセッションを破棄しリダイレクト
+		if (isset($_GET["$$"])) {
+			$keys = array_keys($_SESSION[DOMAIN]);
+			foreach ($keys as $key) { if (stripos($key, "Lib.") === 0) unset($_SESSION[DOMAIN][$key]); }
+			
+			header("Location: login.html");
+			exit();
+		}
+		// added: 190614 データベースへの接続を確認する（インストーラーアクセス）
+		if (isset($_GET["connect"])) {
+			$dac = new DAC(Lib::connection(), "mysql");
+			try {
+				$dac->open();
+				$dac->command = "Show Tables From ". DB_NAME;
+				$rows = $dac->query();
+
+				// note: Set up initial data.
+				if (!$rows) {
+					$dac->command = file_get_contents("database.sql");
+					$dac->execute();
+				}
+				$dac->close();
+				$this->response("You can connect to the database.", true);
+			} catch (Exception $ex) {
+				$dac->close();
+				$this->response($ex->getMessage(), false);
+			}
+		}
+	}
+}
+/**
+ * フォーム要素とルールの連想配列
+ * 指定要素にフィルタールールと必須チェック及びセッション利用の有無を指定する
+ */
+$form["user_id"] = new Rule(20, "[^0-9a-zA-Z\-_]", "a", null, true, true);
+$form["password"] = new Rule(20, "[^0-9a-zA-Z\-_@.]", "a", null, true, false);
+/**
+ * ページインスタンス生成
+ * 実行パス、ルール連想配列及びページセッション名を指定する
+ */
+$page = new Page_Login(__DIR__, $form, "Lib.page.login");
+/**
+ * イベント発生時のコールバック関数、移動先及びセッション保存の有無をセットしload()を実行する
+ */
+$page->setEvent("action", "login", array($page, "login"), "index.html", true);
+$page->setEvent("default", "", array($page, "default"), "login.html", false);
+
+$page->load();

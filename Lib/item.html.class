@@ -1,0 +1,224 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * アイテムページクラス
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2019 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.191220
+ */
+namespace Lib;
+
+require_once("Conf.inc");
+require_once("Common/Page.class");
+require_once("Common/DAC.class");
+
+class Page_Item extends Page {
+	public $title;
+	/**
+	 * 
+	 */
+	public function default(){
+		Lib::authPage($this);
+		if (!$_GET["category"] || !in_array($_GET["category"], array_keys(Fixed::category()))) {
+			$_SESSION[DOMAIN]["Lib.page.item_list"]["errors"]["message"] = "必要な情報が送信されませんでした。";
+			$this->location("item_list.html?p={$_GET["p"]}&category={$_GET["category"]}");
+		}
+
+		// note: ポストバックデータがある場合はリターン
+		if ($this->values && $this->values["ROWID"] == $_GET["ROWID"]) return true;
+
+		// note: 新規の場合はリターン
+		if(!$_GET["ROWID"]) {
+			$this->values["tm_write"] = date("Y/m/d");
+			$this->title = "New content - ";
+			return true;
+		}
+
+		// note: 保存済みのコンテンツを獲得
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setColumn("ROWID");
+		$dac->setColumn("title");
+		$dac->setColumn("tag");
+		$dac->setColumn("tm_write");
+		$dac->setColumn("text1");
+		$dac->setColumn("text2");
+		$dac->setColumn("uri_image");
+		$dac->setColumn("uri_link");
+		$dac->setColumn("is_open");
+		$dac->setOption("ROWID = [0]", $_GET["ROWID"]);
+		$dac->setOrder("tag");
+		if (!$dac->selectRows("t_item", $rows)) {
+			$_SESSION[DOMAIN]["Lib.page.item_list"]["errors"]["message"] = $dac->message;
+			$this->location("item_list.html?p={$_GET["p"]}&category={$_GET["category"]}");
+		}
+		if (!$rows[0]) {
+			$_SESSION[DOMAIN]["Lib.page.item_list"]["errors"]["message"] = "該当するコンテンツが存在しません。";
+			$this->location("item_list.html?p={$_GET["p"]}&category={$_GET["category"]}");
+		}
+		$this->values = Filter::getEntities($rows[0]);
+		$this->errors = null;
+		$this->title = "{$rows[0]["title"]} - ";
+		return true;
+	}
+	/**
+	 * ページセッションを破棄しリストへ戻る
+	 */
+	public function back() {
+		Lib::authPage($this);
+		unset($_SESSION[DOMAIN][$this->sessionKey]);
+		unset($_SESSION[DOMAIN]["Lib.page.item_list"]["errors"]);
+		return true;
+	}
+	/**
+	 * アイテム情報を保存する
+	 */
+	public function save() {
+		Lib::authPage($this);
+		if (!$_POST["ROWID"] && !$_GET["category"]) $this->errors["message"] = "不正なアクセスです。";
+		if (!in_array($_GET["category"], array_keys(Fixed::category()))) $this->errors["form"] = "不明なカテゴリーが送信されました。";
+		if (!Filter::isDate($_POST["tm_write"])) $this->errors["message"] = "存在しない日付が指定されました。";
+
+		// note: タブを半角スペースx2に変換
+		Filter::tab2space($_POST["text1"]);
+		Filter::tab2space($_POST["text2"]);
+
+		if ($this->errors)	 {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"] = $this->errors;
+			return false;
+		}
+		// note: アイテムを登録する
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setData("title", $_POST["title"]);
+		$dac->setData("tag", str_replace([" ", "(", ")", "（", "）", "/", "／", "・", "<", ">", "＜", "＞", "|", "｜", "+", "＋"], ",", $_POST["tag"]));
+		$dac->setData("tm_write", $_POST["tm_write"]);
+		$dac->setData("text1", $_POST["text1"]);
+		$dac->setData("text2", $_POST["text2"]);
+		$dac->setData("uri_image", $_POST["uri_image"]);
+		$dac->setData("uri_link", $_POST["uri_link"]);
+		$dac->setData("is_open", $_POST["is_open"]);
+		$dac->setData("category", $_GET["category"]);
+		
+		if(!$_POST["ROWID"]){
+			if (!$ROWID = $dac->insertData("t_item", true, true)){
+				$_SESSION[DOMAIN][$this->sessionKey]["errors"]["message"] = $dac->message;
+				return false;
+			}
+		} else {
+			$dac->setOption("ROWID = [0]", $_POST["ROWID"]);
+			if (!$dac->updateData("t_item", 1)) {
+				$_SESSION[DOMAIN][$this->sessionKey]["errors"]["message"] = $dac->message;
+				return false;
+			}
+			$ROWID = $_POST["ROWID"];
+		}
+		unset($_SESSION[DOMAIN][$this->sessionKey]);
+		$this->location("item.html?ROWID={$ROWID}&p={$_GET["p"]}&category={$_GET["category"]}");
+	}
+	/**
+	 * アイテム情報を削除する
+	 */
+	public function delete() {
+		Lib::authPage($this);
+		if (!$_POST["ROWID"]) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["message"] = "必要な情報が送信されませんでした";
+			return false;
+		}
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setOption("ROWID = [0]", $_POST["ROWID"]);
+
+		// note: ファイル名を獲得する
+		$dac->setColumn("uri_image");
+		$dac->setOption("ROWID = [0]", $_POST["ROWID"]);
+		if (!$dac->selectRows("t_item", $rows, 1)) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["message"] = $dac->message;
+			return false;
+		} else if (count($rows) > 0 && stripos("http", $rows[0]["uri_image"]) !== 0) {
+			$pathBase = "../{$rows[0]["uri_image"]}";
+		}
+
+		// note: アイテム情報を削除する
+		if (!$dac->deleteRows("t_item", 1)) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["message"] = $dac->message;
+			return false;
+		}
+		// note: ファイルを削除する
+		if ($pathBase) unlink($pathBase);
+		
+		unset($_SESSION[DOMAIN][$this->sessionKey]);
+		return true;
+	}
+	/**
+	 * アイテム情報を削除する
+	 */
+	public function modal() {
+		Lib::authPage($this);
+		if (!$_POST["category"]) die("FAILURE:必要な情報が送信されませんでした。");
+		$path=  "../image/c_{$_POST["category"]}/";
+		$exts = array("png", "jpg", "jpeg", "gif");
+		$files = scandir($path);
+		
+		foreach ($files as $file) {
+			if (!in_array(end(explode(".", $file)), $exts)) continue;
+			echo "<div data-name=\"{$file}\"><button></button><img src=\"{$path}{$file}\"><label>{$file}</label></div>";
+		}
+		exit();
+	}
+	/**
+	 * 画像をアップロードする
+	 */
+	public function upload() {
+		Lib::authPage($this);
+		if (!$_POST["category"]) die("FAILURE:必要な情報が送信されませんでした。");
+		$path=  "../image/c_{$_POST["category"]}/";
+		$exts = array("png", "jpg", "jpeg", "gif");
+
+		$this->saveFile("file", $path, $exts) or die("FAILURE:{$this->errors["upload"]}");
+		$this->modal();
+	}
+	/**
+	 * 画像を削除する
+	 */
+	public function removeFile() {
+		Lib::authPage($this);
+		if (!$_POST["category"] || !$_POST["file_name"]) die("FAILURE:必要な情報が送信されませんでした。");
+		$path=  "../image/c_{$_POST["category"]}/{$_POST["file_name"]}";
+		
+		unlink($path) or die("FAILURE:ファイルの削除に失敗しました。");
+		$this->modal();
+	}
+}
+/**
+ * フォーム要素とルールの連想配列
+ * 指定要素にフィルタールールと必須チェック及びセッション利用の有無を指定する
+ */
+$form["ROWID"] = new Rule(9, "[^0-9NEW]", "a", null, false, true);
+$form["title"] = new Rule(200, null, null, null, true, true);
+$form["tag"] = new Rule(100, "[<>&$'\"]", null, null, false, true);
+$form["tm_write"] = new Rule(20, "[^0-9\-]", null, null, false, true);
+$form["text1"] = new Rule(20000, "", null, null, false, true);
+$form["text2"] = new Rule(20000, "", null, null, false, true);
+$form["uri_image"] = new Rule(100, "[^0-9a-zA-Z.\-_/:?&%#]", "a", null, false, true);
+$form["uri_link"] = new Rule(100, "[^0-9a-zA-Z.\-_/:?&%#]", "a", null, false, true);
+$form["is_open"] = new Rule(1, "[^01]", null, null, false, true);
+
+$form["category"] = new Rule(3, "[^0-9]", null, null, false, false);
+$form["file_name"] = new Rule(200, "[^0-9a-zA-Z\-_.]", null, null, false, false);
+
+/**
+ * ページインスタンス生成
+ * 実行パス、ルール連想配列及びページセッション名を指定する
+ */
+$page = new Page_Item(__DIR__, $form, "Lib.page.item", true);
+/**
+ * イベント発生時のコールバック関数、移動先及びセッション保存の有無をセットしload()を実行する
+ */
+$page->setEvent("default", null, array($page, "default"), "", false);
+$page->setEvent("action", "back", array($page, "back"), "item_list.html?p={$_GET["p"]}&category={$_GET["category"]}", false);
+$page->setEvent("action", "save", array($page, "save"), "", true);
+$page->setEvent("action", "delete", array($page, "delete"), "item_list.html?p={$_GET["p"]}&category={$_GET["category"]}", false);
+$page->setEvent("action", "modal", array($page, "modal"), "", false);
+$page->setEvent("action", "upload", array($page, "upload"), "", false);
+$page->setEvent("action", "unlink", array($page, "removeFile"), "", false);
+$page->load();

@@ -1,0 +1,174 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ *ルール編集ページクラス
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2020 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.200419
+ */
+namespace Lib;
+
+require_once("Conf.inc");
+require_once("Common/Page.class");
+require_once("Common/DAC.class");
+
+class Page_Rule_edit extends Page {
+	/**
+	 * @property string $page_name 編集中のページ名
+	 * @property string $user_id 編集ユーザーID
+	 * @property string $user_id 編集ユーザー名
+	 * @property int $is_locked ロック状態
+	 */
+	public $title;
+	public $page_name;
+	public $user_id;
+	public $user_name;
+	public $is_locked;
+	/**
+	 * 
+	 */
+	public function default() {
+		Lib::authPage($this);
+
+		// note: ページ情報を獲得
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setColumn("p.page_name, p.user_id, p.is_locked");
+		$dac->setColumn("u.user_name");
+		$dac->setOption("p.ROWID = [0]", $_GET["page"]);
+		if (!$dac->selectRows("t_page As p Left Join t_user As u On (p.user_id = u.user_id)", $rows)) {
+			$_SESSION[DOMAIN]["Lib.page.event"]["errors"]["form"] = $dac->message;
+			$this->location("event.html?page={$_GET["page"]}");
+		}
+		$this->page_name = $rows[0]["page_name"];
+		$this->user_id = $rows[0]["user_id"];
+		$this->user_name = $rows[0]["user_name"];
+		$this->is_locked = $rows[0]["is_locked"];
+		$this->title = "{$rows[0]["page_name"]}";
+		
+		// note: ポストバック値がある場合はリターン
+		if ($this->values && $this->values["ROWID"] == $_GET["ROWID"]) return true;
+
+		// note: 追加の場合はリターン
+		if (!$_GET["ROWID"]) {
+			$this->values["pattern"] = "4";
+			$this->values["kana"] = "3";
+			$this->title.= " Add rule - ";
+			return true;
+		}
+		
+		// note: ルール設定を獲得
+		$dac->clear();
+		$dac->setColumn("ROWID");
+		$dac->setColumn("name");
+		$dac->setColumn("len");
+		$dac->setColumn("pattern");
+		$dac->setColumn("pattern_check");
+		$dac->setColumn("pattern_input");
+		$dac->setColumn("kana");
+		$dac->setColumn("kana_check");
+		$dac->setColumn("kana_input");
+		$dac->setColumn("def");
+		$dac->setColumn("req");
+		$dac->setColumn("use_session");
+		$dac->setOption("ROWID = [0]", $_GET["ROWID"]);
+		if (!$dac->selectRows("t_rule", $rows)) {
+			$_SESSION[DOMAIN]["Lib.page.event"]["errors"]["form"] = $dac->message;
+			$this->location("event.html?page={$_GET["page"]}");
+		}
+		if (!$rows[0]) {
+			$_SESSION[DOMAIN]["Lib.page.event"]["errors"]["form"] = "選択したルールが見つかりませんでした。";
+			$this->location("event.html?page={$_GET["page"]}");
+		}
+		$this->values = Filter::getEntities($rows[0]);
+		$this->title.= " {$rows[0]["name"]} - ";
+		return true;
+	}
+	/**
+	 * ページセッションを破棄しリストへ戻る
+	 */
+	public function back() {
+		Lib::authPage($this);
+		unset($_SESSION[DOMAIN][$this->sessionKey]);
+		return true;
+	}
+	/**
+	 * ルールを保存する
+	 */
+	public function save() {
+		Lib::authPage($this);
+		if ($_POST["pattern"] == "1" && !$_POST["pattern_check"]) $this->errors["pattern"] = true;
+		if ($_POST["pattern"] == "2" && !$_POST["pattern_input"]) $this->errors["pattern"] = true;
+		if ($_POST["kana"] == "1" && !$_POST["kana_check"]) $this->errors["kana"] = true;
+		if ($_POST["kana"] == "2" && !$_POST["kana_input"]) $this->errors["kana"] = true;
+		if ($this->errors) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"] = $this->errors;
+			return false;
+		}
+		
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setData("name", $_POST["name"]);
+		$dac->setData("t_page_ROWID", $_GET["page"]);
+		$dac->setData("len", $_POST["len"]);
+		$dac->setData("pattern", $_POST["pattern"]);
+		$dac->setData("pattern_check", implode(",", $_POST["pattern_check"]));
+		$dac->setData("pattern_input", $_POST["pattern_input"]);
+		$dac->setData("kana", $_POST["kana"]);
+		$dac->setData("kana_check", $_POST["kana_check"]);
+		$dac->setData("kana_input", $_POST["kana_input"]);
+		$dac->setData("def", $_POST["def"]);
+		$dac->setData("req", $_POST["req"]);
+		$dac->setData("use_session", $_POST["use_session"]);
+		
+		if (!$_POST["ROWID"]) {
+			if (!$dac->insertData("t_rule")) {
+				$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = $dac->message;
+				return false;
+			}
+		} else {
+			$dac->setOption("ROWID = [0]", $_POST["ROWID"]);
+			if (!$dac->updateData("t_rule", 1)) {
+				$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = $dac->message;
+				return false;
+			}
+		}
+		unset($_SESSION[DOMAIN][$this->sessionKey]);
+		return true;
+	}
+	/**
+	 * ルールを削除する
+	 */
+	public function delete() {
+		Lib::authPage($this);
+		if (!$_POST["ROWID"]) return false;
+		
+		$dac = new DAC(Lib::connection(), "mysql", false);
+		$dac->setOption("ROWID = '[0]'", $_POST["ROWID"]);
+		if (!$dac->deleteRows("t_rule", 1)) {
+			$_SESSION[DOMAIN][$this->sessionKey]["errors"]["form"] = $dac->message;
+			return false;
+		}
+		unset($_SESSION[DOMAIN][$this->sessionKey]);
+		return true;
+	}
+}
+$form["ROWID"] = new Rule(9, "[^0-9NEW]", "a", null, false, true);
+$form["name"] = new Rule(50, "[^0-9a-zA-Z_]", "a", null, true, true);
+$form["len"] = new Rule(5, "[^0-9]", "a", null, true, true);
+$form["pattern"] = new Rule(1, "[^1-4]", null, "4", false, true);
+$form["pattern_check"] = new Rule(50, "", null, null, false, true);
+$form["pattern_input"] = new Rule(50, "", "a", null, false, true);
+$form["kana"] = new Rule(1, "[^1-3]", null, "3", false, true);
+$form["kana_check"] = new Rule(10, "[^a-zA-Z]", null, null, false, true);
+$form["kana_input"] = new Rule(10, "[^a-zA-Z]", "a", null, false, true);
+$form["def"] = new Rule(20, "[^0-9a-zA-Z]", null, null, false, true);
+$form["req"] = new Rule(1, "[^01]", null, "0", false, true);
+$form["use_session"] = new Rule(1, "[^01]", null, "0", false, true);
+
+$page = new Page_Rule_edit(__DIR__, $form, "Lib.page.rule_edit");
+$page->setEvent("default", null, array($page, "default"), "", false);
+$page->setEvent("action", "save", array($page, "save"), "event.html?page={$_GET["page"]}", true);
+$page->setEvent("action", "back", array($page, "back"), "event.html?page={$_GET["page"]}", false);
+$page->setEvent("action", "delete", array($page, "delete"), "event.html?page={$_GET["page"]}", false);
+$page->load();

@@ -1,0 +1,222 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * イベント編集ページ
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2020 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.200114
+ */
+require_once("event_edit.html.class");
+?>
+<?php include("inc/header.inc"); ?>
+
+<style>
+section .content article #btn_lock:hover {
+	opacity: initial;
+	transition: initial;
+}
+section .content article h2 span {
+	color: #000;
+}
+</style>
+<section>
+	<div class="wrap clearfix">
+		<div id="menu">
+			<?php include("inc/menu.inc"); ?>
+		</div>
+		<script>
+		var isChange = false;
+		var editor;
+		// note: ロック状態を確認する
+		function isLocked() {
+				var user = "<?= $_SESSION[DOMAIN]["Lib.user"]["user_id"] ?>";
+				if ($("#is_locked").val() == "1" && $("#user_id").val() != user) {
+					alert("このページは" + $("#user_name").val() + "によってロックされています。");
+					return false;
+				}
+				return true;
+		}
+		// added: 170126 イベントの種類の表示を切り替える
+		function toggleCheck(val) {
+			if (val == "0") {
+				$("#name").css("display", "none");
+				$("#value").css("display", "none");
+				$("#move_to mark").html("Loading event redirects to the url when return false.");
+			} else {
+				$("#name").css("display", "flex");
+				$("#value").css("display", "flex");
+				$("#move_to mark").html("POST event redirects to the url when return true.");
+			}
+		}
+		$(function() {
+			// note: エラー表示にクラスを追加する
+			$("form dl dd span").parent().parent().addClass("error");
+			// note: メニューのページリストプルダウンをクリックする
+			$("#menu .caption:eq(2) label").click();
+			// added: 170126 イベントの種類デフォルト表示
+			toggleCheck("<?= ($page->values["name"] != "default") ? "1" : "0" ?>");
+			// added: 170126 イベントの種類クリックイベント
+			$("#is_postevent input").on("click", function() {
+				toggleCheck($(this).val());
+			});
+			// note: フォーム要素の変更イベント
+			$("form").on("change", function() {
+				isChange = true;
+			});
+			// note: 戻るボタンクリックイベント
+			$("#btn_back").on("click", function() {
+				if (isChange && !confirm("保存せずに戻りますか？")) return false;
+				$("#action").val("back");
+			});
+			// note: 保存ボタンクリックイベント
+			$("#btn_save").on("click", function() {
+				if (!isLocked()) return false;
+				$("textarea[name=content]").val(editor.getValue());
+				$("#action").val("save");
+			});
+			// note: 削除ボタンクリックイベント
+			$("#btn_delete").on("click", function() {
+				if ($("#ROWID").val() == "") return false;
+				if (!isLocked()) return false;
+				if (!confirm("削除してもよろしいですか？")) return false;
+				$("#action").val("delete");
+			});
+			// note: エディター
+			$("#editor").css("height", $(window).height() - 136);
+				$("#editor").focusin(function() { 
+					var header = $("header").height() + 1;
+					var node = $("div.content > article:first");
+					var target = $("#editor").parent().parent();
+					$("div.content").animate({ scrollTop: target.offset().top - node.offset().top + 20 });
+				});
+			editor = ace.edit("editor");
+			editor.setTheme("ace/theme/clouds");
+			editor.setFontSize(14);
+			editor.setShowInvisibles(true);
+			editor.getSession().setMode({path:"ace/mode/php", inline:true});
+			editor.getSession().setUseWrapMode(true);
+			editor.getSession().setTabSize(2);
+			editor.renderer.setShowGutter(false);
+			editor.setOption("showPrintMargin", false);
+			editor.$blockScrolling = Infinity;
+			editor.setValue($("textarea[name=content]").text(), -1);
+
+			$("section form div.hide a.close").on("click", function() {
+				$(this).parent().animate({height: "hide"},"fast");
+			});
+			$("section div.content a.open").on("click", function() {
+				$("section form div.hide").animate({height: "show"}, "fast");
+			});
+			if ($("#ROWID").val() == "") $("section div.content a.open").click();
+		});
+		</script>
+		<div class="content">
+			<article>
+				<?= ($page->errors["form"]) ? "<p>{$page->errors["form"]}</p>" : "" ?>
+				<h2>
+					<?php
+					if ($_GET["event"]) {
+						if ($page->values["name"] == "default") echo "{$page->page_name} <span>Loading</span>";
+						else if ($page->values["name"]) echo "{$page->page_name} <span>{$page->values["name"]}: {$page->values["callback"]}</span>";
+						else echo "{$page->page_name} <span>New event</span>";
+					} else {
+						if ($page->values["callback"]) echo "{$page->page_name} <span>{$page->values["callback"]}</span>";
+						else echo "{$page->page_name} <span>New method</span>";
+					}
+					?>
+				</h2>
+				<a class="icon open" title="Edit detail"></a>
+				<button id="btn_lock" class="<?= ($page->is_locked) ? "lock_on" : "lock_off" ?>" disabled></button>
+			</article>
+			<form method="post">
+				<div class="hide">
+					<a class="close"></a>
+					<?php if ($_GET["event"]) { ?>
+					<dl id="is_postevent">
+						<dt>Type of event</dt>
+						<dd>
+							<?= Lib\Tag::getRadio("is_postevent", array("1" => "POST", "0" => "Loding"), ($page->values["name"] != "default") ? "1" : "0") ?>
+						</dd>
+					</dl>
+					<dl id="name">
+						<dt>Name</dt>
+						<dd>
+							<input type="text" name="name" value="<?= $page->values["name"] ?>">
+							<?= ($page->errors["name"]) ? "<span>{$page->errors["name"]}</span>" : "" ?>
+						</dd>
+					</dl>
+					<dl id="value">
+						<dt>Value</dt>
+						<dd>
+							<input type="text" name="callback" value="<?= $page->values["callback"] ?>"><mark>The value is used for the callback function name.</mark>
+							<?= ($page->errors["callback"]) ? "<span>{$page->errors["callback"]}</span>" : "" ?>
+						</dd>
+					</dl>
+					<dl id="move_to">
+						<dt>Move to</dt>
+						<dd>
+							<input type="text" name="move_to" value="<?= $page->values["move_to"] ?>"><mark></mark>
+						</dd>
+					</dl>
+					<dl>
+						<dt>State</dt>
+						<dd>
+							<?= Lib\Tag::getRadio("visible", array("1" => "Enable", "0" => "Disable"), $page->values["visible"]) ?>
+						</dd>
+					</dl>
+					<dl>
+						<dt>Comment</dt>
+						<dd>
+							<input type="text" name="comment" style="width: 100%" value="<?= $page->values["comment"] ?>">
+						</dd>
+					</dl>
+					<?php } else { ?>
+					<dl>
+						<dt>function</dt>
+						<dd>
+							<input type="text" name="callback" value="<?= $page->values["callback"] ?>">
+							<?= ($page->errors["callback"]) ? "<span>{$page->errors["callback"]}</span>" : "" ?>
+						</dd>
+					</dl>
+					<dl>
+						<dt>State</dt>
+						<dd>
+							<?= Lib\Tag::getRadio("visible", array("1" => "Enable", "0" => "Disable"), $page->values["visible"]) ?>
+						</dd>
+					</dl>
+					<dl>
+						<dt>Comment</dt>
+						<dd>
+							<input type="text" name="comment" style="width: 100%" value="<?= $page->values["comment"] ?>">
+						</dd>
+					</dl>
+					<?php } ?>
+					<div class="clearfix">
+						<div class="left">
+							<button id="btn_back">Back</button>
+							<button id="btn_save">Save</button>
+						</div>
+						<div class="right">
+							<button id="btn_delete">Delete</button>
+						</div>
+						<input type="hidden" id="action" name="action">
+						<input type="hidden" id="ROWID" name="ROWID" value="<?= $page->values["ROWID"] ?>">
+						<input type="hidden" id="user_id" value="<?= $page->user_id ?>">
+						<input type="hidden" id="user_name" value="<?= $page->user_name ?>">
+						<input type="hidden" id="is_locked" value="<?= $page->is_locked ?>">
+					</div>
+				</div><!-- div.hide -->
+				<dl class="textarea">
+					<dd>
+						<div id="editor"></div>
+						<textarea name="content"style="display: none;" data-field="t_event.content" data-rowid="<?= $page->values["ROWID"] ?>"><?= $page->values["content"] ?></textarea>
+						<?php if ($page->values["ROWID"]) include("inc/support_editor.inc"); ?>
+					</dd>
+				</dl>
+			</form>
+		</div><!-- #content -->
+	</div><!-- #wrap -->
+</section>
+<?php include("inc/footer.inc"); ?>

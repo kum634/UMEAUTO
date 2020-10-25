@@ -1,0 +1,83 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * キャッシュページ
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2018 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.1.180605
+ */
+require_once("cache.html.class");
+?>
+<?php include("inc/header.inc"); ?>
+<style>
+div.wrap {
+	overflow: auto;
+}
+h2 {
+	margin-bottom: 20px;
+}
+#view_cache {
+	width: 100%;
+}
+#view_cache table {
+	margin-bottom: 10px;
+}
+#view_cache table:nth-of-type(1) td {
+	width: 25%;
+	text-align: center;
+}
+#view_cache table:nth-of-type(2) td {
+	text-align: right;
+}
+#view_cache table:nth-of-type(2) td:nth-of-type(1) {
+	text-align: left;
+}
+section form button {
+	margin-top: 20px;
+	margin-bottom: 20px;
+}
+.wrap{
+	display: block;
+	padding: 30px;
+}
+</style>
+<script>
+	var isBusy = false;
+	$(function() {
+		$(document).ajaxError(function(e, req){
+			console.log(dump(req.status, req.statusText));
+			isBusy = false;
+		});
+		$("#view_cache").on("click", "button", function() {
+			if (isBusy) return false; else isBusy = true;
+			$.post(location.href,
+				{ action: "reset" },
+				function(res) {
+					isBusy = false;
+					if (res.indexOf("FAILURE:") == 0) alert(res);
+					else $("#view_cache div").html(res);
+				}
+			);
+			return false;
+		});
+	});
+</script>
+
+<section>
+	<div class="wrap clearfix">
+		<div id="view_cache">
+			<article class="clearfix">
+				<h2>Cache</h2>
+			</article>
+			<div>
+				<?= $page->getCacheTag() ?>
+			</div>
+			<form>
+				<button>RESET</button>
+			</form>
+		</div>
+	</div>
+</section>
+<?php include("inc/footer.inc"); ?>

@@ -1,0 +1,232 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ *
+ * @package    basepack
+ * @copyright  Copyright (c) 2019
+ * @version    1.0.20201006
+ * @framework  Lib Framework v3.1.180515
+ */
+require_once("{$_SERVER["DOCUMENT_ROOT"]}/Lib/Conf.inc");
+require_once("Common/Page.class");
+require_once("Common/DAC.class");
+require_once("Common/Filter.class");
+require_once("Common/Lib.class");
+require_once("Common/MailClass.class");
+require_once("Common/Rule.class");
+
+use Lib\{Page,DAC,Filter,Lib,MailClass,Rule};
+
+class Page_RequestConfirm extends Page {
+	public $form;
+	public $gender;
+	public $file_photo;
+	public $parts;
+	public $save_path;
+	public $temp_path;
+	public $crumbs;
+
+	/**
+	 * ページロード時に実行します。
+	 */
+	public function default() {
+		if (!$_SESSION[DOMAIN]["request_data"]) $this->location("request.html");
+		$this->crumbs = "<li><a href=\"request.html\">整備依頼申し込みフォーム</a></li>\n";
+		$this->crumbs.= "<li>入力内容の確認</li>\n";
+		$this->form = $_SESSION[DOMAIN]["request_data"];
+		
+		switch ($this->form["gender"]) {
+			case 0:
+				$this->gender = "男";
+				break;
+			case 1:
+				$this->gender = "女";
+				break;
+		}
+		
+		if ($this->form["file_photo"]) {
+			$html = "<ul>";
+			foreach ($this->form["file_photo"] as $photo) {
+				$path = "{$this->node}images/upfile_tmp/";
+				$name = str_replace($path, '', $photo);
+				$html.= " <li data-name=\"{$name}\">";
+				$html.= "	 <img src=\"{$photo}\">";	
+				$html.= " </li>";
+			}
+			$html.= "</ul>"; 
+		}
+		$this->file_photo = $html;
+		
+		switch ($this->form["parts"]) {
+			case 0:
+				$this->parts = "該当しない";
+				break;
+			case 1:
+				$this->parts = "無";
+				break;
+			case 2:
+				$this->parts = "有";
+				break;
+		}
+	}
+	/**
+	 * actionがsendのときに実行します。
+	 */
+	public function send() {
+		$this->save_path = "images/upfile/";
+		$this->temp_path = "images/upfile_tmp/";
+		
+		$dac = new DAC(Lib::connection(), "mysql");
+		$form = $_SESSION[DOMAIN]["request_data"];
+		switch ($this->form["gender"]) {
+			case 0:
+				$this->gender = "男";
+				break;
+			case 1:
+				$this->gender = "女";
+				break;
+		}
+		switch ($this->form["parts"]) {
+			case 0:
+				$this->parts = "該当しない";
+				break;
+			case 1:
+				$this->parts = "無";
+				break;
+			case 2:
+				$this->parts = "有";
+				break;
+		}
+		$time = date("Y-m-d H:i");
+		$manufacturered = $form["manufacturered_year"]."-".$form["manufacturered_month"];
+		$expiration = $form["expiration_year"]."-".$form["expiration_month"]."-".$form["expiration_day"];
+		$file_photo = array();
+		
+		try {
+			if (!empty($form["file_photo"]) ) {
+				foreach ($form["file_photo"] as $photo) {
+					$photo_name = str_replace($this->temp_path, "", $photo);
+					$file_photo[] = $photo_name;
+					if (!rename($photo, $this->save_path. $photo_name)) throw new Exception("ファイルの保存に失敗しました。");
+				}
+			}
+		
+			$body = "--__BOUNDARY__\n";
+			$body .= "Content-Type: text/plain; charset=\"ISO-2022-JP\"\n\n";
+			$body .= "
+			お問い合わせ日時	:	".$time."\n".
+			'-お客様情報-'."\n".
+			'氏名	:	'.$form["name"]."\n".
+			'ふりがな	:	'.$form["kana"]."\n".
+			'性別	:	'.$this->gender."\n".
+			'年齢	:	'.$form["age"]."\n".	
+			'電話番号	:	'.$form["tel"]."\n".
+			'メールアドレス	:	'.$form["mail"]."\n".
+			'郵便番号	:	'.$form["postalcode"]."\n".
+			'現住所（市区町村） :	'.$form["city"]."\n".
+			'現住所（字以降） :	'.$form["addr"]."\n".
+			
+			'-車種情報-'."\n".
+			'メーカー名	:	'.$form["manufacturer_name"]."\n".	
+			'車種名	:	'.$form["model_name"]."\n".	
+			'型式	 :	'.$form["model_code"]."\n".	
+			'製造年月	:	'.$manufacturered."\n".	
+			'車検証の有効期限	:	'.$expiration."\n".	
+			
+			'-依頼内容-'."\n".
+			'依頼目的	 :	'.$form["request_purpose"]."\n".	
+			'希望日	 :	'.$form["reservation_date"]."\n". 
+			'依頼内容の詳細	:	'.$form["request_details"]."\n".
+			'取り付け予定の部品は
+			お手元にありますか	:	'.$this->parts."\n".
+			"詳細写真	:	\n";
+			$body.= "--__BOUNDARY__\n";			
+			
+				if (!empty($file_photo)) {
+				 foreach ($file_photo as $value){
+					$body.= "Content-Type: application/octet-stream; name=\"{$value}\"\n";
+					$body.= "Content-Disposition: attachment; filename=\"{$value}\"\n";
+					$body.= "Content-Transfer-Encoding: base64\n";
+					$body.= "\n";
+					$body.= chunk_split(base64_encode(file_get_contents($this->save_path.$value)));
+					$body.= "--__BOUNDARY__\n";
+				 }
+				}		
+			
+			mb_language ( "Japanese" ) ;
+			mb_internal_encoding ( "UTF-8" ) ;	
+				
+			$header = "MIME-Version: 1.0\n";			
+			$header = "Content-Type: multipart/mixed;boundary=\"__BOUNDARY__\"\n";			
+			$header .= "from: umetarochan823341@outlook.jp" ;
+			$mailto =$form["mail"];
+			$mtaopt = "-f umetarochan823341@outlook.jp" ;
+			$subject = "受付が完了致しました。" ;
+			$return1 = mb_send_mail ( $mailto , $subject , $body , $header , $mtaopt ) ;
+						
+			$header = "MIME-Version: 1.0\n";			
+			$header = "Content-Type: multipart/mixed;boundary=\"__BOUNDARY__\"\n";			
+			$header .= "from: umetarochan823341@outlook.jp" ;
+			$mailto ="u.kei0424@gmail.com";
+			$mtaopt = "-f umetarochan823341@outlook.jp" ;
+			$subject = "受付がありました。" ;
+			$return2 = mb_send_mail ( $mailto , $subject , $body , $header , $mtaopt ) ;			
+			
+			if (!$return1 || !$return2 ) throw new Exception("メールの送信に失敗しました。"); 
+		
+			if ( !empty($file_photo) ) $file_photo = implode(",", $file_photo);
+			
+			$dac->open();
+			$dac->setData("time", $time);
+			$dac->setData("name", $form["name"]);
+			$dac->setData("kana", $form["kana"]);
+			$dac->setData("gender", $form["gender"]);
+			$dac->setData("age", $form["age"]);
+			$dac->setData("tel", $form["tel"]);
+			$dac->setData("mail", $form["mail"]);
+			$dac->setData("postalcode", $form["postalcode"]);
+			$dac->setData("city", $form["city"]);
+			$dac->setData("addr", $form["addr"]);
+			$dac->setData("manufacturer_name", $form["manufacturer_name"]);
+			$dac->setData("model_name", $form["model_name"]);
+			$dac->setData("model_code", $form["model_code"]);
+			$dac->setData("manufacturered", $manufacturered);
+			$dac->setData("expiration", $expiration);
+			$dac->setData("request_purpose", $form["request_purpose"]);
+			$dac->setData("reservation_date", $form["reservation_date"]);
+			$dac->setData("request_details", $form["request_details"]);
+			$dac->setData("file_photo", $file_photo);
+			$dac->setData("parts", $form["parts"]);
+			$dac->insert("reservation");
+			$dac->close();
+		
+			unset($_SESSION[DOMAIN]["request_data"]);
+			$this->response("OK", true);
+		} catch (Exception $ex) {
+			$dac->close();
+			$this->response($ex->getMessage(), false);
+		}
+	}
+
+}
+/**
+ * フォーム要素とルールの連想配列
+ * 指定要素にフィルタールールと必須チェック及びセッション利用の有無を指定する
+ */
+
+/**
+ * ページインスタンス生成
+ * 実行パス、ルール連想配列及びページセッション名を指定する
+ */
+$page = new Page_RequestConfirm(__DIR__, null, null, false);
+/**
+ * イベント発生時のコールバック関数、移動先及びセッション保存の有無をセットしload()を実行する
+ */
+$page->setEvent("default", null, array($page, "default"), "", true);
+$page->setEvent("action", "send", array($page, "send"), "", true);
+
+/**
+ * クロスページポストの有無を設定する
+ */
+$page->canCrossPagePostBack = false;
+$page->load();

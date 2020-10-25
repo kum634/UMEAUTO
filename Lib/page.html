@@ -1,0 +1,326 @@
+<?php
+/**
+ * 文字コード UTF-8N 改行コードLF
+ * ページ詳細ページ
+ *
+ * @package    Lib
+ * @copyright  Copyright (c) 2016-2020 Barman Soft, Inc.
+ * @license    https://libframework.org/license.html The Clear BSD License
+ * @version    Lib Framework v3.2.200129
+ */
+require_once("page.html.class");
+?>
+<?php include("inc/header.inc"); ?>
+<style>
+section form #keyword textarea {
+	height: 50px;
+}
+section form #description textarea {
+	height: 80px;
+}
+section form dl dt {
+	min-width: 170px;
+}
+section form dl#html {
+	display: block;
+	margin: 0;
+	width: 100%;
+}
+#editor2, #editor3 { display: none; }
+div.split.row {
+	display: flex;
+	flex-flow: row;
+}
+div.split.row #editor {
+	margin-left: 5px;
+	width: 50%;
+}
+div.split.row #editor2 {
+	width: 50%;
+}
+div.split.row #editor3 {
+	width: 50%;
+}
+div.split.row.reverse {
+	flex-flow: row-reverse;
+}
+div.split.row.reverse #editor {
+	margin-right: 5px;
+	width: 50%;
+}
+</style>
+<section>
+	<div class="wrap clearfix">
+		<div id="menu">
+			<?php include("inc/menu.inc"); ?>
+		</div><!-- #menu -->
+		<script>
+		var isBusy = false;
+		var isChange = false;
+		var editor;
+		var editor2;
+		var editor3;
+		// note: ロック状態を確認する
+		function isLocked() {
+				var user = "<?= $_SESSION[DOMAIN]["Lib.user"]["user_id"] ?>";
+				if ($("#is_locked").val() == "1" && $("#user_id").val() != user) {
+					alert("このページは" + $("#user_name").val() + "によってロックされています。");
+					return false;
+				}
+				return true;
+		}
+		$(function() {
+			// note: エラー表示にクラスを追加する
+			$("form dl dd span").parent().parent().addClass("error");
+			// note: メニューのページリストプルダウンをクリックする
+			$("#menu .caption:eq(2) label").click();
+			// note: description 文字数を表示する
+			$("#description var").html($("#description textarea").val().length + "/160");
+			// note: description 入力イベント
+			$("#description textarea").on("change keyup", function() {
+				$("#description var").html($(this).val().length + "/160");
+			});
+			// note: フォーム要素の変更イベント
+			$("form").on("change", function() {
+				isChange = true;
+			});
+			// note: 戻るボタンクリックイベント
+			$("#btn_back").on("click", function() {
+				if (isChange && !confirm("保存せずに戻りますか？")) return false;
+				$("#action").val("back");
+			});
+			// note: 保存ボタンクリックイベント
+			$("#btn_save").on("click", function() {
+				if (!isLocked()) return false;
+				$("textarea[name=content]").val(editor.getValue());
+				$("textarea[name=style]").val(editor2.getValue());
+				$("textarea[name=script]").val(editor3.getValue());
+				$("#action").val("save");
+			});
+			// note: 削除ボタンクリックイベント
+			$("#btn_delete").on("click", function() {
+				if ($("#ROWID").val() == "") return false;
+				if (!isLocked()) return false;
+				if (!confirm("<?= $page->values["page_name"] ?>を削除してもよろしいですか？")) return false;
+				$("#action").val("delete");
+			});
+			// note: ロックボタンクリックイベント
+			$("#btn_lock").on("click", function() {
+				if ($("#ROWID").val() == "") return;
+				if (!isLocked()) return false;
+				if ($("#is_locked").val() == "1" && !confirm("このページのロックを解除しますか？")) return;
+				if ($("#is_locked").val() == "0" && !confirm("このページをロックしますか？")) return;
+
+				if (isBusy) return; else isBusy = true;
+				$.post(
+					location.href,
+					{ "action": "lock", "ROWID": $("#ROWID").val(), "is_locked": $("#is_locked").val() },
+					function (res) {
+						isBusy = false;
+						if (res.indexOf("FAILURE:") > -1) alert(res);
+						else location.reload();
+					},
+					"html");
+			});
+			// note: エディター
+			$("#editor").css("height", $(window).height() - 136);
+			editor = ace.edit("editor");
+			editor.setTheme("ace/theme/eclipse");
+			editor.setFontSize(14);
+			editor.setShowInvisibles(true);
+			editor.getSession().setMode("ace/mode/html");
+			editor.getSession().setUseWrapMode(true);
+			editor.getSession().setTabSize(2);
+			editor.renderer.setShowGutter(false);
+			editor.setOption("showPrintMargin", false);
+			editor.$blockScrolling = Infinity;
+			editor.setValue($("textarea[name=content]").text(), -1);
+
+			$("#editor2").css("height", $(window).height() - 136);
+			editor2 = ace.edit("editor2");
+			editor2.setTheme("ace/theme/eclipse");
+			editor2.setFontSize(14);
+			editor2.setShowInvisibles(true);
+			editor2.getSession().setMode("ace/mode/css");
+			editor2.getSession().setUseWrapMode(false);
+			editor2.getSession().setTabSize(2);
+			editor2.renderer.setShowGutter(false);
+			editor2.setOption("showPrintMargin", false);
+			editor2.$blockScrolling = Infinity;
+			editor2.setValue($("textarea[name=style]").text(), -1);
+
+			$("#editor3").css("height", $(window).height() - 136);
+			editor3 = ace.edit("editor3");
+			editor3.setTheme("ace/theme/eclipse");
+			editor3.setFontSize(14);
+			editor3.setShowInvisibles(true);
+			editor3.getSession().setMode("ace/mode/javascript");
+			editor3.getSession().setUseWrapMode(false);
+			editor3.getSession().setTabSize(2);
+			editor3.renderer.setShowGutter(false);
+			editor3.setOption("showPrintMargin", false);
+			editor3.$blockScrolling = Infinity;
+			editor3.setValue($("textarea[name=script]").text(), -1);
+
+			$("section form div.hide a.close").on("click", function() {
+				$(this).parent().animate({height: "hide"},"fast");
+			});
+			$("section div.content a.open").on("click", function() {
+				$("section form div.hide").animate({height: "show"}, "fast");
+			});
+			if ($("#ROWID").val() == "") $("section div.content a.open").click();
+
+			$("section div.content a.style").on("click", function() {
+				$("section form div.split").addClass("row");
+				$("#editor2").show();
+				$("#editor3").hide();
+				$("section div.content a.revert").show();
+				$("section div#menu").hide();
+				editor.getSession().setUseWrapMode(false);
+			});
+			$("section div.content a.script").on("click", function() {
+				$("section form div.split").addClass("row");
+				$("#editor2").hide();
+				$("#editor3").show();
+				$("section div.content a.revert").show();
+				$("section div#menu").hide();
+				editor.getSession().setUseWrapMode(false);
+			});
+			$("section div.content a.revert").on("click", function() {
+				$("section form div.split").removeClass("row");
+				$("#editor2").hide();
+				$("#editor3").hide();
+				$("section div.content a.revert").hide();
+				$("section div#menu").show();
+			});
+			$("section div.content a#event").on("mouseenter", function() {
+				$(this).attr("href", $(this).attr("href").split('#')[0] + "#" + $("#menu").scrollTop());
+			});
+		});
+		</script>
+		<div class="content">
+			<article>
+				<?= ($page->errors["message"]) ? "<p>{$page->errors["message"]}</p>" : "" ?>
+				<h2><?= ($page->values["page_name"]) ? $page->values["page_name"] : "New page" ?></h2>
+				<a class="icon open" title="Edit detail"></a>
+				<a class="icon style" title="Edit stylesheet"></a>
+				<a class="icon script" title="Edit javascript"></a>
+				<a class="icon revert" title="Revert editor"></a>
+				<a id="event" href="event.html?page=<?= $page->values["ROWID"] ?>">Events</a>
+				<button id="btn_lock" class="<?= ($page->values["is_locked"]) ? "lock_on" : "lock_off" ?>"><?= ($page->values["is_locked"]) ? "Unlock" : "Lock" ?></button>
+			</article>
+			<form method="post">
+				<div class="hide">
+					<a class="close"></a>
+					<dl>
+						<dt>Page name</dt>
+						<dd>
+							<input type="text" name="page_name" value="<?= $page->values["page_name"] ?>" style="width: 50%">
+							<?= ($page->errors["page_name"]) ? "<span>{$page->errors["page_name"]}</span>" : "" ?>
+						</dd>
+					</dl>
+					<dl>
+						<dt>File name</dt>
+						<dd>
+							<input type="text" name="url" value="<?= $page->values["url"] ?>" style="width: 50%">
+							<?= ($page->errors["url"]) ? "<span>{$page->errors["url"]}</span>" : "" ?>
+						</dd>
+					</dl>
+					<dl>
+						<dt>Header template</dt>
+						<dd>
+							<select name="header_temp" style="width: 50%">
+							<option value="">--</option>
+							<?php foreach($page->rowsHeader as $header) { ?>
+							<option value="<?= $header["ROWID"] ?>" <?= ($page->values["header_temp"] == $header["ROWID"]) ? "selected" : "" ?>><?= $header["tl_name"] ?></option>
+							<?php } ?>
+							</select>
+							<?= ($page->errors["header_temp"]) ? " <span>{$page->errors["header_temp"]}</span>" : "" ?>
+						</dd>
+					</dl>
+					<dl>
+						<dt>Footer template</dt>
+						<dd>
+							<select name="footer_temp" style="width: 50%">
+								<option value="">--</option>
+								<?php foreach($page->rowsFooter as $footer) { ?>
+								<option value="<?= $footer["ROWID"] ?>" <?= ($page->values["footer_temp"] == $footer["ROWID"]) ? "selected" : "" ?>><?= $footer["tl_name"] ?></option>
+								<?php } ?>
+							</select>
+							<?= ($page->errors["footer_temp"]) ? " <span>{$page->errors["footer_temp"]}</span>" : "" ?>
+						</dd>
+					</dl>
+					<dl>
+						<dt>{#title}</dt>
+						<dd>
+							<input type="text" name="title" value="<?= $page->values["title"] ?>" style="width:100%">
+							<?= ($page->errors["title"]) ? "<span>{$page->errors["title"]}</span>" : "" ?>
+						</dd>
+					</dl>
+					<dl id="keyword">
+						<dt>{#keywords}</dt>
+						<dd>
+							<textarea name="keyword" rows="2"><?= $page->values["keyword"] ?></textarea>
+						</dd>
+					</dl>
+					<dl id="description">
+						<dt>{#description}</dt>
+						<dd>
+							<textarea name="description" rows="6"><?= $page->values["description"] ?></textarea>
+							<var></var>
+						</dd>
+					</dl>
+					<dl>
+						<dt>Createed:</dt>
+						<dd>
+							<?= $page->values["tm_create"] ?>
+							<input type="hidden" name="tm_create" value="<?= $page->values["tm_create"] ?>">
+						</dd>
+					</dl>
+					<dl>
+						<dt>Modified:</dt>
+						<dd>
+							<?= $page->values["tm_update"] ?>
+							<input type="hidden" name="tm_update" value="<?= $page->values["tm_update"] ?>">
+						</dd>
+					</dl>
+					<dl>
+						<dt>User:</dt>
+						<dd>
+							<?= $page->values["user_name"] ?>
+							<input type="hidden" id="user_name" name="user_name" value="<?= $page->values["user_name"] ?>">
+						</dd>
+					</dl>
+					<div class="clearfix">
+						<div class="left">
+							<button id="btn_back">Back</button>
+							<button id="btn_save">Save</button>
+						</div>
+						<div class="right">
+							<button id="btn_delete">Delete</button>
+						</div>
+						<input type="hidden" id="action" name="action">
+						<input type="hidden" id="ROWID" name="ROWID" value="<?= $page->values["ROWID"] ?>">
+						<input type="hidden" id="user_id" name="user_id" value="<?= $page->values["user_id"] ?>">
+						<input type="hidden" id="is_locked" name="is_locked" value="<?= $page->values["is_locked"] ?>">
+					</div>
+				</div><!-- div.hide -->
+				<dl id="html" class="textarea">
+					<dd>
+						<div class="split">
+							<div id="editor2"></div>
+							<div id="editor3"></div>
+							<div id="editor"></div>
+						</div>
+						<textarea name="content" style="display: none;"><?= $page->values["content"] ?></textarea>
+						<textarea name="style" style="display: none;"><?= $page->values["style"] ?></textarea>
+						<textarea name="script" style="display: none;"><?= $page->values["script"] ?></textarea>
+						<div style="display: none;" data-type="page" data-field="t_page.content" data-rowid="<?= $page->values["ROWID"] ?>"></div>
+						<?php if ($page->values["ROWID"]) include("inc/support_editor.inc"); ?>
+					</dd>
+				</dl>
+			</form>
+		</div><!-- #content -->
+	</div><!-- #wrap -->
+</section>
+<?php include("inc/footer.inc"); ?>
