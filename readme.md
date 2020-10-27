@@ -9,7 +9,7 @@
 
 ***デモ***
  
-https://kum634.com/umeauto/
+https://xs768400.xsrv.jp/index.html
 
  
 ## 機能
